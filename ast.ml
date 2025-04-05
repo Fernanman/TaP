@@ -1,4 +1,5 @@
-type bop = Add | Sub | Equal | Neq | Less | And | Or
+(* Binary operators *)
+type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or
 
 type typ = Int | Bool
 
@@ -25,13 +26,13 @@ type program = {
 
 (* Pretty-printing functions *)
 let string_of_op = function
-    Add -> "+"
-  | Sub -> "-"
-  | Equal -> "=="
-  | Neq -> "!="
-  | Less -> "<"
-  | And -> "&&"
-  | Or -> "||"
+    Add -> "plus"
+  | Sub -> "minus"
+  | Equal -> "is equal to"
+  | Neq -> "is not equal to"
+  | Less -> "is less than"
+  | And -> "and"
+  | Or -> "or"
 
 let rec string_of_expr = function
     Literal(l) -> string_of_int l

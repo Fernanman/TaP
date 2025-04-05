@@ -14,3 +14,6 @@ tap.exe
 tap.tb
 tap.txt
 makeprint.bat
+pretty_print.cmi
+pretty_print.cmo
+pretty_print.exe
