@@ -4,8 +4,10 @@ type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | A
 type typ = Int | Bool
 
 type expr =
-  | Literal of int
+  | IntLit of int
   | BoolLit of bool
+  | NumLit of float
+  | StringLit of string
   | Id of string
   | Binop of expr * bop * expr
   | Assign of string * expr
@@ -23,25 +25,31 @@ type program = {
   body: stmt list;
 }
 
-
 (* Pretty-printing functions *)
 let string_of_op = function
     Add -> "plus"
   | Sub -> "minus"
-  | Equal -> "is equal to"
-  | Neq -> "is not equal to"
-  | Less -> "is less than"
+  | Mult -> "mult"
+  | Equal -> "equals"
+  | Neq -> "not equals"
+  | Less -> "less than"
   | And -> "and"
   | Or -> "or"
+  | Div -> "divide"
+  | Greater -> "greater than"
+  | Geq -> "greater equals"
+  | Leq -> "less equals"
 
 let rec string_of_expr = function
-    Literal(l) -> string_of_int l
+    IntLit(l) -> string_of_int l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
   | Id(s) -> s
+  | StringLit(s) -> s
+  | NumLit(l) -> string_of_float l
   | Binop(e1, o, e2) ->
     string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
-  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | Assign(v, e) -> v ^ " is " ^ string_of_expr e
 
 let rec string_of_stmt = function
     Block(stmts) ->

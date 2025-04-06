@@ -4,13 +4,16 @@
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE PLUS MINUS ASSIGN
-%token EQ NEQ LT AND OR
-%token IF ELSE WHILE INT BOOL
-%token RETURN COMMA
-%token <int> LITERAL
-%token <bool> BLIT
-%token <string> ID
+%token LPAREN RPAREN LBRACE RBRACE PLUS MINUS TIMES DIVIDE MOD ASSIGN NL
+%token EQ NEQ LT AND OR NOT GT LEQ GEQ
+%token IF ELSE WHILE FUN END FOR INT 
+%token RETURN COMMA BREAK CONT FREE NULL AT IN CLASS AS TO QUOTE
+%token LIST STRING BOOLEAN MAP SET ARRAY NUMBER
+%token <int> INT_LIT
+%token <bool> BOOL_LIT
+%token <float> NUM_LIT
+%token <string> STRING_LIT
+%token <string> IDENTIFIER
 %token EOF
 
 %start program_rule
@@ -19,9 +22,10 @@ open Ast
 %right ASSIGN
 %left OR
 %left AND
-%left EQ NEQ
-%left LT
+%left EQ NEQ LEQ GEQ
+%left LT GT
 %left PLUS MINUS
+%left TIMES DIVIDE MOD
 
 %%
 
@@ -33,33 +37,42 @@ vdecl_list_rule:
   | vdecl_rule vdecl_list_rule  { $1 :: $2 }
 
 vdecl_rule:
-  typ_rule ID SEMI { ($1, $2) }
+// Maybe dont need the second was semi
+  typ_rule IDENTIFIER { ($1, $2) }
 
 
 typ_rule:
   INT       { Int  }
-  | BOOL    { Bool }
+  | BOOLEAN    { Bool }
 
 stmt_list_rule:
     /* nothing */               { []     }
     | stmt_rule stmt_list_rule  { $1::$2 }
 
 stmt_rule:
-  expr_rule SEMI                                          { Expr $1         }
+// Semi here should probably be NP 
+//   expr_rule SEMI                                          { Expr $1         }
   | LBRACE stmt_list_rule RBRACE                          { Block $2        }
   | IF LPAREN expr_rule RPAREN stmt_rule ELSE stmt_rule   { If ($3, $5, $7) }
   | WHILE LPAREN expr_rule RPAREN stmt_rule               { While ($3,$5)   }
 
 expr_rule:
-  | BLIT                          { BoolLit $1            }
-  | LITERAL                       { Literal $1            }
-  | ID                            { Id $1                 }
-  | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)   }
-  | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)   }
-  | expr_rule EQ expr_rule        { Binop ($1, Equal, $3) }
-  | expr_rule NEQ expr_rule       { Binop ($1, Neq, $3)   }
-  | expr_rule LT expr_rule        { Binop ($1, Less, $3)  }
-  | expr_rule AND expr_rule       { Binop ($1, And, $3)   }
-  | expr_rule OR expr_rule        { Binop ($1, Or, $3)    }
-  | ID ASSIGN expr_rule           { Assign ($1, $3)       }
-  | LPAREN expr_rule RPAREN       { $2                    }
+  | BOOL_LIT                      { BoolLit $1              }
+  | INT_LIT                       { IntLit $1               }
+  | NUM_LIT                       { NumLit $1               }
+  | QUOTE STRING_LIT QUOTE        { StringLit $2            }
+  | IDENTIFIER                    { Id $1                   }
+  | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
+  | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }
+  | expr_rule TIMES expr_rule     { Binop ($1, Mult, $3)    }
+  | expr_rule DIVIDE expr_rule    { Binop ($1, Div, $3)     }
+  | expr_rule EQ expr_rule        { Binop ($1, Equal, $3)   }
+  | expr_rule NEQ expr_rule       { Binop ($1, Neq, $3)     }
+  | expr_rule LEQ expr_rule       { Binop ($1, Leq, $3)     }
+  | expr_rule GEQ expr_rule       { Binop ($1, Geq, $3)     }
+  | expr_rule LT expr_rule        { Binop ($1, Less, $3)    }
+  | expr_rule GT expr_rule        { Binop ($1, Greater, $3) }
+  | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
+  | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
+  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
+  | LPAREN expr_rule RPAREN       { $2                      }

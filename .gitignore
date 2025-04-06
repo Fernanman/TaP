@@ -1,6 +1,5 @@
 ast.cmi
-make.bat
-makeclean.bat
+*.bat
 parser.cmi
 parser.cmo
 parser.mli
@@ -13,7 +12,6 @@ tap.cmo
 tap.exe
 tap.tb
 tap.txt
-makeprint.bat
 pretty_print.cmi
 pretty_print.cmo
 pretty_print.exe
