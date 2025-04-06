@@ -17,7 +17,7 @@ type stmt =
   | Expr of expr
   | If of expr * stmt
   | While of expr * stmt
-  | For of string * int * stmt
+  | For of string * int * int * stmt
 
 type bind = typ * string
 
@@ -60,7 +60,7 @@ let rec string_of_stmt = function
   | If(e, s) ->  "if " ^ string_of_expr e ^ "\n" ^
                       string_of_stmt s ^ "end if\n"
   | While(e, s) -> "while " ^ string_of_expr e ^ "\n" ^ string_of_stmt s ^ "end while\n"
-  | For(id, to_id, s) -> "for " ^ id ^ " to " ^ string_of_int to_id ^ "\n" ^ string_of_stmt s ^ "end for\n"
+  | For(id, from_id, to_id, s) -> "for " ^ id ^ " in " ^ string_of_int from_id ^ " to " ^ string_of_int to_id ^ "\n" ^ string_of_stmt s ^ "end for\n"
 
 let string_of_program fdecl =
   "\n\nParsed program: \n\n" ^

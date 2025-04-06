@@ -52,8 +52,8 @@ stmt_rule:
   expr_rule NL                                              { Expr $1         }
   | IF expr_rule NL stmt_rule END IF                           { If ($2, $4)     }
   | WHILE expr_rule NL stmt_rule END WHILE                     { While ($2, $4)  }
-//   Will later need to make an identifier version
-  | FOR IDENTIFIER TO INT_LIT stmt_rule END FOR             { For ($2, $4, $5)}
+//   Will later need to make an identifier version. Also can add step later.
+  | FOR IDENTIFIER IN INT_LIT TO INT_LIT NL stmt_rule END FOR             { For ($2, $4, $6, $8)}
 
 expr_rule:
   | BOOL_LIT                      { BoolLit $1              }
