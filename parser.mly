@@ -37,8 +37,7 @@ vdecl_list_rule:
   | vdecl_rule vdecl_list_rule  { $1 :: $2 }
 
 vdecl_rule:
-// Maybe dont need the second was semi
-  typ_rule IDENTIFIER { ($1, $2) }
+  typ_rule IDENTIFIER NL { ($1, $2) }
 
 
 typ_rule:
@@ -50,11 +49,11 @@ stmt_list_rule:
     | stmt_rule stmt_list_rule  { $1::$2 }
 
 stmt_rule:
-// Semi here should probably be NP 
-//   expr_rule SEMI                                          { Expr $1         }
-  | LBRACE stmt_list_rule RBRACE                          { Block $2        }
-  | IF LPAREN expr_rule RPAREN stmt_rule ELSE stmt_rule   { If ($3, $5, $7) }
-  | WHILE LPAREN expr_rule RPAREN stmt_rule               { While ($3,$5)   }
+  expr_rule NL                                              { Expr $1         }
+  | IF expr_rule NL stmt_rule END IF                           { If ($2, $4)     }
+  | WHILE expr_rule NL stmt_rule END WHILE                     { While ($2, $4)  }
+//   Will later need to make an identifier version
+  | FOR IDENTIFIER TO INT_LIT stmt_rule END FOR             { For ($2, $4, $5)}
 
 expr_rule:
   | BOOL_LIT                      { BoolLit $1              }

@@ -9,7 +9,7 @@ let number = digit* '.' digit+
 let alphabet = ['a'-'z' 'A'-'Z']
 let identifier = alphabet (alphabet | digit)*
 let whitespace = [' ' '\t' '\r']+
-let line_terminator = ('\n' | ('.' ' '))
+let line_terminator = ('\n' | ". ")
 
 (* Do not have comments as of now *)
 rule token = parse

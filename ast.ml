@@ -15,8 +15,9 @@ type expr =
 type stmt =
   | Block of stmt list
   | Expr of expr
-  | If of expr * stmt * stmt
+  | If of expr * stmt
   | While of expr * stmt
+  | For of string * int * stmt
 
 type bind = typ * string
 
@@ -42,31 +43,26 @@ let string_of_op = function
 
 let rec string_of_expr = function
     IntLit(l) -> string_of_int l
+  | NumLit(l) -> string_of_float l
   | BoolLit(true) -> "true"
   | BoolLit(false) -> "false"
   | Id(s) -> s
-  | StringLit(s) -> s
-  | NumLit(l) -> string_of_float l
+  | StringLit(s) -> "'" ^ s ^ "'"
   | Binop(e1, o, e2) ->
     string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Assign(v, e) -> v ^ " is " ^ string_of_expr e
 
+  (* Needs work *)
 let rec string_of_stmt = function
     Block(stmts) ->
-    "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
-  | Expr(expr) -> string_of_expr expr ^ ";\n";
-  | If(e, s1, s2) ->  "if (" ^ string_of_expr e ^ ")\n" ^
-                      string_of_stmt s1 ^ "else\n" ^ string_of_stmt s2
-  | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
-
-let string_of_typ = function
-    Int -> "int"
-  | Bool -> "bool"
-
-let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
+    String.concat "" (List.map string_of_stmt stmts)
+  | Expr(expr) -> string_of_expr expr ^ "\n";
+  | If(e, s) ->  "if " ^ string_of_expr e ^ "\n" ^
+                      string_of_stmt s ^ "end if\n"
+  | While(e, s) -> "while " ^ string_of_expr e ^ "\n" ^ string_of_stmt s ^ "end while\n"
+  | For(id, to_id, s) -> "for " ^ id ^ " to " ^ string_of_int to_id ^ "\n" ^ string_of_stmt s ^ "end for\n"
 
 let string_of_program fdecl =
   "\n\nParsed program: \n\n" ^
-  String.concat "" (List.map string_of_vdecl fdecl.locals) ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "\n"

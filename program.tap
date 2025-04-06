@@ -1,8 +1,3 @@
+while 2 < 2
 a is 10
-
-b is 24
-c is 'hello'
-c is 'new hello'
-
-a < b
-a gt b
+end while
