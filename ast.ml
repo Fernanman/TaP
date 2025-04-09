@@ -1,7 +1,7 @@
 (* Binary operators *)
 type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or
 
-type typ = Int | Bool
+type typ = Int | Num | Bool
 
 type expr =
   | IntLit of int
@@ -9,8 +9,14 @@ type expr =
   | NumLit of float
   | StringLit of string
   | Id of string
+  | Map of string
+  | Set of string
+  | Array of string
+  | As of expr * typ
+  | At of expr * expr
   | Binop of expr * bop * expr
   | Assign of string * expr
+  | Call of string * expr list
 
 type stmt =
   | Block of stmt list
@@ -18,6 +24,10 @@ type stmt =
   | If of expr * stmt
   | While of expr * stmt
   | For of string * int * int * stmt
+  | Break
+  | Continue
+  | Free of string
+  | FunDef of string * (typ * string) list * stmt list
 
 type bind = typ * string
 
