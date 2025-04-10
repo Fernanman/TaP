@@ -4,11 +4,11 @@
 open Ast
 %}
 
-%token LPAREN RPAREN LBRACE RBRACE PLUS MINUS TIMES DIVIDE MOD ASSIGN NL
+%token LPAREN RPAREN PLUS MINUS TIMES DIVIDE MOD ASSIGN NL
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
-%token IF ELSE WHILE FUN END FOR INT 
+%token IF ELSE WHILE FUN END FOR 
 %token RETURN COMMA BREAK CONT FREE NULL AT IN CLASS AS TO QUOTE
-%token LIST STRING BOOLEAN MAP SET ARRAY NUMBER
+%token LIST STRING BOOLEAN MAP SET LIST NUMBER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
 %token <float> NUM_LIT
@@ -40,7 +40,6 @@ vdecl_rule:
   typ_rule IDENTIFIER NL { ($1, $2) }
 
 typ_rule:
-  INT       { Int  }
   | NUMBER    { Num }
   | BOOLEAN    { Bool }
 
@@ -57,7 +56,7 @@ stmt_rule:
   | BREAK NL                                                             { Break }
   | CONT NL                                                              { Continue }
   | FREE IDENTIFIER NL                                                   { Free $2 }
-  | FUN IDENTIFIER LPAREN param_list RPAREN LBRACE stmt_list_rule RBRACE { FunDef ($2, $4, $6) }
+  // | FUN IDENTIFIER LPAREN param_list RPAREN LBRACE stmt_list_rule RBRACE { FunDef ($2, $4, $6) }
 
 param_list:
     /* nothing */ { [] }
@@ -75,10 +74,10 @@ expr_rule:
   | NUM_LIT                       { NumLit $1               }
   | QUOTE STRING_LIT QUOTE        { StringLit $2            }
   | IDENTIFIER                    { Id $1                   }
-  | MAP IDENTIFIER                { Map $2                  }
-  | SET IDENTIFIER                { Set $2                  }
-  | ARRAY IDENTIFIER              { Array $2                  }
-  | expr_rule AS typ_rule         { As ($1, $2)             }
+  | MAP                           { Map                     }
+  | SET                           { Set                     }
+  | LIST                          { List                    }
+  | expr_rule AS typ_rule         { As ($1, $3)             }
   | expr_rule AT expr_rule        { At ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
   | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }

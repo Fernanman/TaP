@@ -1,4 +1,6 @@
 ast.cmi
+ast.cmo
+*.exe
 *.bat
 parser.cmi
 parser.cmo
@@ -6,12 +8,10 @@ parser.mli
 parser.ml
 scanner.cmi
 scanner.cmo
-scnaner.ml
+scanner.ml
 tap.cmi
 tap.cmo
-tap.exe
 tap.tb
 tap.txt
 pretty_print.cmi
 pretty_print.cmo
-pretty_print.exe

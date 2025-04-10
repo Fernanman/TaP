@@ -1,7 +1,7 @@
 (* Binary operators *)
-type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or
+type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or | Mod
 
-type typ = Int | Num | Bool
+type typ = Num | Bool | Map | Set | List
 
 type expr =
   | IntLit of int
@@ -9,13 +9,13 @@ type expr =
   | NumLit of float
   | StringLit of string
   | Id of string
-  | Map of string
-  | Set of string
-  | Array of string
   | As of expr * typ
   | At of expr * expr
   | Binop of expr * bop * expr
   | Assign of string * expr
+  | Map
+  | Set
+  | List
   | Call of string * expr list
 
 type stmt =
@@ -27,7 +27,7 @@ type stmt =
   | Break
   | Continue
   | Free of string
-  | FunDef of string * (typ * string) list * stmt list
+  (* | FunDef of string * (typ * string) list * stmt list *)
 
 type bind = typ * string
 
@@ -51,6 +51,13 @@ let string_of_op = function
   | Geq -> "greater equals"
   | Leq -> "less equals"
 
+let string_of_typ = function
+    Num -> "num"
+  | Bool -> "bool"
+  | Map -> "map"
+  | Set -> "set"
+  | List -> "list"
+
 let rec string_of_expr = function
     IntLit(l) -> string_of_int l
   | NumLit(l) -> string_of_float l
@@ -61,6 +68,9 @@ let rec string_of_expr = function
   | Binop(e1, o, e2) ->
     string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Assign(v, e) -> v ^ " is " ^ string_of_expr e
+  | As(e1, etype) -> string_of_expr e1 ^ " as " ^ string_of_typ etype
+  | At(id, pos) -> string_of_expr id ^ " at " ^ string_of_expr pos
+  (* | Call(id, params) -> id ^ "(" ^ params ^ ")"  *)
 
   (* Needs work *)
 let rec string_of_stmt = function
@@ -71,6 +81,9 @@ let rec string_of_stmt = function
                       string_of_stmt s ^ "end if\n"
   | While(e, s) -> "while " ^ string_of_expr e ^ "\n" ^ string_of_stmt s ^ "end while\n"
   | For(id, from_id, to_id, s) -> "for " ^ id ^ " in " ^ string_of_int from_id ^ " to " ^ string_of_int to_id ^ "\n" ^ string_of_stmt s ^ "end for\n"
+  | Break -> "break"
+  | Continue -> "continue"
+  | Free(id) -> "free " ^ "id"
 
 let string_of_program fdecl =
   "\n\nParsed program: \n\n" ^

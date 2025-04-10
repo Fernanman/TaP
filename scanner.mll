@@ -17,8 +17,6 @@ rule token = parse
 | line_terminator       { NL }
 | '('      { LPAREN }
 | ')'      { RPAREN }
-| '{'      { LBRACE }
-| '}'      { RBRACE }
 | ','      { COMMA }
 | '+'      { PLUS }
 | '-'      { MINUS }
@@ -74,7 +72,6 @@ rule token = parse
     | "boolean" -> BOOLEAN
     | "map" -> MAP
     | "set" -> SET
-    | "array" -> ARRAY
     | "number" -> NUMBER
     | "to" -> TO
     | _ -> IDENTIFIER(standard_id) 
