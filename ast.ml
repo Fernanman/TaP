@@ -1,7 +1,7 @@
 (* Binary operators *)
 type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or | Mod
 
-type typ = Num | Bool | Map | Set | List
+type typ = Int | Num | Bool | Map | Set | List
 
 type expr =
   | IntLit of int
@@ -12,10 +12,10 @@ type expr =
   | As of expr * typ
   | At of expr * expr
   | Binop of expr * bop * expr
-  | Assign of string * expr
+  (*| Assign of string * expr
   | Map
   | Set
-  | List
+  | List*)
   | Call of string * expr list
 
 type stmt =
@@ -27,14 +27,20 @@ type stmt =
   | Break
   | Continue
   | Free of string
-  (* | FunDef of string * (typ * string) list * stmt list *)
+  | Return of expr
 
 type bind = typ * string
 
-type program = {
+(* func_def: ret_typ fname formals locals body *)
+type func_def = {
+  rtyp: typ;
+  fname: string;
+  formals: bind list;
   locals: bind list;
   body: stmt list;
 }
+
+type program = bind list * func_def list
 
 (* Pretty-printing functions *)
 let string_of_op = function
@@ -46,6 +52,7 @@ let string_of_op = function
   | Less -> "less than"
   | And -> "and"
   | Or -> "or"
+  | Mod -> "modulo"
   | Div -> "divide"
   | Greater -> "greater than"
   | Geq -> "greater equals"
@@ -53,6 +60,7 @@ let string_of_op = function
 
 let string_of_typ = function
     Num -> "num"
+  | Int -> "int"
   | Bool -> "bool"
   | Map -> "map"
   | Set -> "set"
@@ -68,24 +76,37 @@ let rec string_of_expr = function
   | Binop(e1, o, e2) ->
     string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Assign(v, e) -> v ^ " is " ^ string_of_expr e
+  | Map -> "map"
+  | Set -> "set"
+  | List -> "list"
   | As(e1, etype) -> string_of_expr e1 ^ " as " ^ string_of_typ etype
   | At(id, pos) -> string_of_expr id ^ " at " ^ string_of_expr pos
-  (* | Call(id, params) -> id ^ "(" ^ params ^ ")"  *)
+  | Call(id, params) -> id ^ "(" ^ String.concat ", " (List.map string_of_expr params) ^ ")"
 
-  (* Needs work *)
 let rec string_of_stmt = function
     Block(stmts) ->
     String.concat "" (List.map string_of_stmt stmts)
-  | Expr(expr) -> string_of_expr expr ^ "\n";
+  | Expr(expr) -> string_of_expr expr ^ "\n"
   | If(e, s) ->  "if " ^ string_of_expr e ^ "\n" ^
                       string_of_stmt s ^ "end if\n"
   | While(e, s) -> "while " ^ string_of_expr e ^ "\n" ^ string_of_stmt s ^ "end while\n"
   | For(id, from_id, to_id, s) -> "for " ^ id ^ " in " ^ string_of_int from_id ^ " to " ^ string_of_int to_id ^ "\n" ^ string_of_stmt s ^ "end for\n"
   | Break -> "break"
   | Continue -> "continue"
-  | Free(id) -> "free " ^ "id"
+  | Free(id) -> "free " ^ string_of_expr (Id id)
+  | Return e -> "return " ^ string_of_expr e ^ "\n"
 
-let string_of_program fdecl =
-  "\n\nParsed program: \n\n" ^
+let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
+
+let string_of_fdecl fdecl =
+  string_of_typ fdecl.rtyp ^ " " ^
+  fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
+  ")\n{\n" ^
+  String.concat "" (List.map string_of_vdecl fdecl.locals) ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
-  "\n"
+  "}\n"
+
+let string_of_program (vars, funcs) =
+  "\n\nParsed program: \n\n" ^
+  String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
+  String.concat "\n" (List.map string_of_fdecl funcs)

@@ -1,27 +1,28 @@
-open Ast
+(* Top-level of the TaP compiler: scan & parse the input,
+   check the resulting AST and generate an SAST from it, generate LLVM IR,
+   and dump the module *)
 
-module StringMap = Map.Make(String);;
+type action = Ast | Sast | LLVM_IR
 
-(* Accepts StringMap, expr as args now *)
-let rec eval mapping = function
-      (* Pattern matching the function arguments *)
-        Lit(x) -> (mapping, x)
-      | Var(indentifier) -> (mapping, StringMap.find indentifier mapping)
-      | Asn(indentifier, eq_expr) -> let (eq_mapping, eq_value) = eval mapping eq_expr in
-            (eq_mapping |> StringMap.add indentifier eq_value, eq_value)   
-      | Seq(expr1, expr2) -> let (new_mapping, _) = eval mapping expr1 in
-            eval new_mapping expr2
-      | Binop(e1, op, e2) ->
-            let (_, v1)  = eval mapping e1 in
-            let (_, v2) = eval mapping e2 in
-            (match op with
-                  Add -> (mapping, v1 + v2)
-                  | Sub -> (mapping, v1 - v2)
-                  | Mul -> (mapping, v1 * v2)
-                  | Div -> (mapping, v1 / v2))
+let () =
+  let action = ref LLVM_IR in
+  let set_action a () = action := a in
+  let speclist = [
+    ("-a", Arg.Unit (set_action Ast), "Print the AST");
+    ("-s", Arg.Unit (set_action Sast), "Print the SAST");
+    ("-l", Arg.Unit (set_action LLVM_IR), "Print the generated LLVM IR");
+  ] in
+  let usage_msg = "usage: ./microc.native [-a|-s|-l] [file.mc]" in
+  let channel = ref stdin in
+  Arg.parse speclist (fun filename -> channel := open_in filename) usage_msg;
 
-let _ =
-  let lexbuf = Lexing.from_channel stdin in
-  let expr = Parser.expr Scanner.tokenize lexbuf in
-  let (_, result) = eval StringMap.empty expr in
-  print_endline (string_of_int result)
+  let lexbuf = Lexing.from_channel !channel in
+
+  let ast = Parser.program Scanner.token lexbuf in
+  match !action with
+    Ast -> print_string (Ast.string_of_program ast)
+  | _ -> let sast = Semant.check ast in
+    match !action with
+      Ast     -> ()
+    | Sast    -> print_string (Sast.string_of_sprogram sast)
+    | LLVM_IR -> () (* print_string (Llvm.string_of_llmodule (Irgen.translate sast)) *)

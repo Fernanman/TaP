@@ -1,4 +1,4 @@
-/* Ocamlyacc parser for NanoC */
+/* Ocamlyacc parser for TaP */
 
 
 %{
@@ -18,8 +18,8 @@ open Ast
 %token <string> IDENTIFIER
 %token EOF
 
-%start program_rule
-%type <Ast.program> program_rule
+%start program
+%type <Ast.program> program
 
 %right ASSIGN
 %left OR
@@ -31,8 +31,13 @@ open Ast
 
 %%
 
-program_rule:
-  vdecl_list_rule stmt_list_rule EOF { {locals=$1; body=$2} }
+program:
+  decls EOF { $1}
+
+decls:
+   /* nothing */ { ([], [])               }
+ | vdecl_rule NL decls { (($1 :: fst $3), snd $3) }
+ | fdecl_rule decls { (fst $2, ($1 :: snd $2)) }
 
 vdecl_list_rule:
   /*nothing*/                   { []       }
@@ -45,9 +50,21 @@ typ_rule:
   | NUMBER    { Num }
   | BOOLEAN    { Bool }
 
+fdecl_rule:
+  FUN vdecl_rule LPAREN param_list RPAREN NL vdecl_list_rule stmt_list_rule END FUN
+  {
+    {
+      rtyp = fst $2;
+      fname = snd $2;
+      formals = $4;
+      locals = $7;
+      body = $8;
+    }
+  }
+
 stmt_list_rule:
     /* nothing */               { []     }
-    | stmt_rule stmt_list_rule  { $1::$2 }
+    | stmt_rule NL stmt_list_rule  { $1::$3 }
 
 stmt_rule:
   expr_rule NL                                                           { Expr $1         }
@@ -58,7 +75,7 @@ stmt_rule:
   | BREAK NL                                                             { Break }
   | CONT NL                                                              { Continue }
   | FREE IDENTIFIER NL                                                   { Free $2 }
-  // | FUN IDENTIFIER LPAREN param_list RPAREN LBRACE stmt_list_rule RBRACE { FunDef ($2, $4, $6) }
+  | RETURN expr_rule NL                        { Return $2 }
 
 param_list:
     /* nothing */ { [] }
