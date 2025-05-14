@@ -8,13 +8,15 @@ let integer = digit+
 let number = digit* '.' digit+
 let alphabet = ['a'-'z' 'A'-'Z']
 let identifier = alphabet (alphabet | digit)*
-let whitespace = [' ' '\t' '\r']+
-let line_terminator = ('\n' | ". ")
+let whitespace = [' ' '\t' '\r' '\n']+
+let string_char = [' '-'&' '('-'[' ']'-'~'])]
+let escape_char = ['\'' '\\' 'n' 'r' 't']
+let line_terminator = '.' (whitespace | eof)
 
 (* Do not have comments as of now *)
 rule token = parse
   whitespace { token lexbuf } (* Whitespace *)
-| line_terminator       { NL }
+| line_terminator  { NL }
 | '('      { LPAREN }
 | ')'      { RPAREN }
 | ','      { COMMA }
@@ -29,10 +31,11 @@ rule token = parse
 | '<'      { LT }
 | "&&"     { AND }
 | "||"     { OR }
-| '\''     { QUOTE }
 (* Literals *)
 | integer as lem  { INT_LIT(int_of_string lem) }
-(* | number as lem { NUM_LIT(float_of_string lem) } *)
+| number as lem { NUM_LIT(float_of_string lem) }
+| '\'' ((string_char | '\\' escape_char)* as lem) '\'' { STRING_LIT(lem) }
+
 (* Identifiers - Check for keywords first because they are case insensitive so have to standardize them by lowering *)
 | identifier as lem { 
     let standard_id = String.lowercase_ascii lem in
@@ -53,10 +56,8 @@ rule token = parse
     | "end" -> END
     | "break" -> BREAK
     | "cont" -> CONT
-    | "free" -> FREE
+    | "step" -> STEP
     | "null" -> NULL
-    | "at" -> AT
-    | "class" -> CLASS
     | "and" -> AND
     | "or" -> OR
     | "not" -> NOT
@@ -78,7 +79,3 @@ rule token = parse
  }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
-
-and comment = parse
-  "*/" { token lexbuf }
-| _    { comment lexbuf }

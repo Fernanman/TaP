@@ -9,7 +9,7 @@ open Ast
 %token LPAREN RPAREN PLUS MINUS TIMES DIVIDE MOD ASSIGN NL
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
 %token IF ELSE WHILE FUN END FOR 
-%token RETURN COMMA BREAK CONT FREE NULL AT IN CLASS AS TO QUOTE
+%token RETURN COMMA BREAK CONT STEP NULL IN AS TO
 %token STRING BOOLEAN MAP SET LIST NUMBER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
@@ -74,7 +74,6 @@ stmt_rule:
   | FOR IDENTIFIER IN INT_LIT TO INT_LIT NL stmt_rule END FOR            { For ($2, $4, $6, $8)}
   | BREAK NL                                                             { Break }
   | CONT NL                                                              { Continue }
-  | FREE IDENTIFIER NL                                                   { Free $2 }
   | RETURN expr_rule NL                        { Return $2 }
 
 param_list:
@@ -91,13 +90,12 @@ expr_rule:
   | BOOL_LIT                      { BoolLit $1              }
   | INT_LIT                       { IntLit $1               }
   | NUM_LIT                       { NumLit $1               }
-  | QUOTE STRING_LIT QUOTE        { StringLit $2            }
+  | STRING_LIT                    { StringLit $1            }
   | IDENTIFIER                    { Id $1                   }
   | MAP                           { Map                     }
   | SET                           { Set                     }
   | LIST                          { List                    }
   | expr_rule AS typ_rule         { As ($1, $3)             }
-  | expr_rule AT expr_rule        { At ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
   | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }
   | expr_rule TIMES expr_rule     { Binop ($1, Mult, $3)    }
