@@ -9,7 +9,7 @@ let number = digit* '.' digit+
 let alphabet = ['a'-'z' 'A'-'Z']
 let identifier = alphabet (alphabet | digit)*
 let whitespace = [' ' '\t' '\r' '\n']+
-let string_char = [' '-'&' '('-'[' ']'-'~'])]
+let string_char = [' '-'&' '('-'[' ']'-'~']
 let escape_char = ['\'' '\\' 'n' 'r' 't']
 let line_terminator = '.' (whitespace | eof)
 

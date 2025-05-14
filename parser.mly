@@ -10,7 +10,7 @@ open Ast
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
 %token IF ELSE WHILE FUN END FOR 
 %token RETURN COMMA BREAK CONT STEP NULL IN AS TO AT
-%token STRING BOOLEAN MAP SET LIST NUMBER
+%token STRING BOOLEAN MAP SET LIST NUMBER INTEGER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
 %token <float> NUM_LIT
@@ -28,6 +28,7 @@ open Ast
 %left LT GT
 %left PLUS MINUS
 %left TIMES DIVIDE MOD
+%left AS
 
 %%
 
@@ -41,7 +42,7 @@ decls:
 
 vdecl_list_rule:
   /*nothing*/                   { []       }
-  | vdecl_rule NL vdecl_list_rule  { $1 :: $2 }
+  | vdecl_rule NL vdecl_list_rule  { $1 :: $3 }
 
 vdecl_rule:
   typ_rule IDENTIFIER NL { ($1, $2) }
@@ -73,8 +74,8 @@ stmt_rule:
   expr_rule NL                                                           { Expr $1         }
   | IF expr_rule NL stmt_rule END IF                                     { If ($2, Block $4)     }
   | WHILE expr_rule NL stmt_rule END WHILE                               { While ($2, Block $4)  }
-  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_rule END FOR NL           { For ($2, $4, $6, Block $8)}
-  | BREAK NL                                                             { Break }
+  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_rule END FOR NL  { For ($2, $4, $6, Block $9)}
+  | BREAK NL                                                                    { Break }
   | CONT NL                                                              { Continue }
   | RETURN expr_rule NL                        { Return $2 }
 
@@ -92,10 +93,6 @@ expr_list:
   | expr_rule                  { [$1] }
   | expr_rule COMMA expr_list { $1 :: $3 }
 
-list_items: /* have to end with comma */
-  /* nothing */ { [] }
-  |expr COMMA list_items  { $1 :: $3 }
-
 expr_rule:
   | BOOL_LIT                      { BoolLit $1              }
   | INT_LIT                       { IntLit $1               }
@@ -104,8 +101,7 @@ expr_rule:
   | IDENTIFIER                    { Id $1                   }
 /*  | MAP                           { Map                     } */
 /*  | SET                           { Set                     } */
-  | LPAREN RPAREN { List([]) }
-  | LPAREN list_items RPAREN { List($2) }
+  // | LPAREN RPAREN { List([]) }
   | expr_rule AS typ_rule         { As ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
   | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }
@@ -121,5 +117,6 @@ expr_rule:
   | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
   | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
-  | LPAREN expr_rule RPAREN       { $2                      }
   | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
+  | LPAREN expr_rule RPAREN { $2 }
+
