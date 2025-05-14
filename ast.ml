@@ -12,6 +12,7 @@ type expr =
   | As of expr * typ
   | At of expr * expr
   | Binop of expr * bop * expr
+  | List of expr list
   (*| Assign of string * expr
   | Map
   | Set

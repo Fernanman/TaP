@@ -55,6 +55,7 @@ rule token = parse
     | "fun" -> FUN
     | "end" -> END
     | "break" -> BREAK
+    | "at" -> AT
     | "cont" -> CONT
     | "step" -> STEP
     | "null" -> NULL
