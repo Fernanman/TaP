@@ -4,8 +4,8 @@ end fun.
 
 fun integer main(). 
   iNtegEr i.
-  I is 3.
   fOr i iN 3 To 10.
-  print(yap()).
+      print(i).
+    I is 5.
   ENd for.
 end fun. 

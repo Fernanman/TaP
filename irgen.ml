@@ -219,7 +219,14 @@ let translate (globals, functions) =
         ignore (L.build_cond_br cond loop_body_bb after_loop_bb cond_builder);
 
         (* Inside loop body *)
-        let body_builder = build_stmt (L.builder_at_end context loop_body_bb) body in
+        let body_builder = L.builder_at_end context loop_body_bb in
+
+        (* Manually assign current loop variable value *)
+        let loop_var_val = L.build_load var_alloca var body_builder in
+        ignore (L.build_store loop_var_val (lookup var) body_builder);
+
+        (* Now build the body *)
+        let body_builder = build_stmt body_builder body in
 
         (* Increment loop variable *)
         let curr_val' = L.build_load var_alloca var body_builder in
