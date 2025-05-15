@@ -22,7 +22,7 @@ type stmt =
   | Expr of expr
   | If of expr * stmt
   | While of expr * stmt
-  | For of string * int * int * stmt
+  | For of string * expr * expr * stmt
   | Break
   | Continue
   | Return of expr
@@ -39,3 +39,64 @@ type func_def = {
 }
 
 type program = bind list * func_def list
+
+(* Pretty-printing functions *)
+
+let string_of_op = function
+    Add -> "+"
+  | Sub -> "-"
+  | Mult -> "*"
+  | Div -> "/"
+  | Equal -> "=="
+  | Neq -> "!="
+  | Less -> "<"
+  | Greater -> ">"
+  | Geq -> ">="
+  | Leq -> "<="
+  | And -> "&&"
+  | Or -> "||"
+  | Mod -> "%"
+
+let string_of_typ = function
+  | Int -> "int"
+  | Num -> "num"
+  | Bool -> "bool"
+  | List -> "list"
+  | String -> "string"
+
+
+let rec string_of_expr = function
+    IntLit(l) -> string_of_int l
+  | BoolLit(true) -> "true"
+  | BoolLit(false) -> "false"
+  | NumLit(l) -> string_of_float l
+  | StringLit(l) -> "\'" ^ l ^ "\'"
+  | Id(s) -> s
+  | As (e, t) -> "((" ^ string_of_typ t ^ " ) " ^ string_of_expr e ^ ")"
+  | At (e1, e2) -> string_of_expr e1 ^ "[" ^ string_of_expr e2 ^ "]"
+  | Binop(e1, o, e2) ->
+    string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
+  | Call (fname, args) -> fname ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
+  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | ListLit es -> "[" ^ String.concat ", " (List.map string_of_expr es) ^ "]\n"
+  | Contains (e1, e2) -> string_of_expr e1 ^ " in " ^ string_of_expr e2
+
+let rec string_of_stmt = function
+    Block(stmts) ->
+    "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
+  | Expr(expr) -> string_of_expr expr ^ ";\n";
+  | If(e, s) ->  "if (" ^ string_of_expr e ^ ")\n" ^
+                      string_of_stmt s
+  | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
+  | For(es, ei1, ei2, s) -> "for (" ^ es ^ " in " ^ string_of_expr ei1 ^ " to " ^ string_of_expr ei2 ^ ") " ^ string_of_stmt s
+  | Break -> "break"
+  | Continue -> "continue"
+  | Return(e) -> "return" ^ string_of_expr e
+
+let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ "\n"
+
+let string_of_program fdecl =
+  "\n\nParsed program: \n\n" ^
+  String.concat "" (List.map string_of_vdecl fdecl.locals) ^
+  String.concat "" (List.map string_of_stmt fdecl.body) ^
+  "\n"

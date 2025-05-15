@@ -76,7 +76,7 @@ stmt_rule:
   expr_rule                                                           { Expr $1         }
   | IF expr_rule NL stmt_list_rule END IF                                    { If ($2, Block $4)     }
   | WHILE expr_rule NL stmt_list_rule END WHILE                              { While ($2, Block $4)  }
-  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
+  | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
   | BREAK                                                                    { Break }
   | CONT                                                              { Continue }
   | RETURN expr_rule                        { Return $2 }
