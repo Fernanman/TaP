@@ -22,6 +22,7 @@ open Ast
 %type <Ast.program> program
 
 %right ASSIGN
+%nonassoc IN
 %left OR
 %left AND
 %left EQ NEQ LEQ GEQ
@@ -114,14 +115,17 @@ expr_rule:
   | expr_rule GT expr_rule        { Binop ($1, Greater, $3) }
   | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
-  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
   | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
+  | expr_rule AT expr_rule { At ($1, $3) } /* expr needs to be IntLit */
+  | expr_rule IN expr_rule { Contains ($1, $3) } /* membership check */
+  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
   | list_literal { $1 }
   | LPAREN expr_rule RPAREN { $2 } /* expr_rule can't be empty */
 
+
 list_literal:
-  | LPAREN RPAREN             { ListLit [] }
-  | LPAREN list_items RPAREN   { ListLit $2 }
+  | LPAREN RPAREN { ListLit [] }
+  | LPAREN list_items RPAREN  { ListLit $2 }
 
 list_items:
   | expr_rule COMMA                  { [$1] }

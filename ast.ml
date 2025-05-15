@@ -15,6 +15,7 @@ type expr =
   | ListLit of expr list
   | Assign of string * expr
   | Call of string * expr list
+  | Contains of expr * expr
 
 type stmt =
   | Block of stmt list
