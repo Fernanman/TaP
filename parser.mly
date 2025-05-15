@@ -10,7 +10,7 @@ open Ast
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
 %token IF ELSE WHILE FUN END FOR 
 %token RETURN COMMA BREAK CONT STEP NULL IN AS TO AT
-%token STRING BOOLEAN LIST NUMBER INTEGER
+%token STRING BOOLEAN MAP SET LIST NUMBER INTEGER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
 %token <float> NUM_LIT
@@ -73,14 +73,13 @@ stmt_list_rule:
     | stmt_rule NL stmt_list_rule  { $1::$3 }
 
 stmt_rule:
-  expr_rule                                                           { Expr $1         }
   | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3) }
   | IF expr_rule NL stmt_list_rule END IF                                    { If ($2, Block $4)     }
   | WHILE expr_rule NL stmt_list_rule END WHILE                              { While ($2, Block $4)  }
   | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
   | BREAK                                                                    { Break }
   | CONT                                                              { Continue }
-  | RETURN expr_rule                        { Return $2 }
+  | RETURN expr_rule                       { Return $2 }
   
 
 optional_step:

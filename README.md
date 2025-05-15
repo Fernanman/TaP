@@ -5,3 +5,14 @@ TaP (Texting and Programming) is a programming language specifically designed fo
 ## Features
 
 ## Getting Started
+```
+ocamlbuild -pkgs llvm tap.native
+```
+
+```
+./tap.native -l program.tap > program.out
+```
+
+```
+lli program.out
+```

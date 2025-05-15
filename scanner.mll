@@ -41,6 +41,7 @@ rule token = parse
     let standard_id = String.lowercase_ascii lem in
     match standard_id with
     | "true" -> BOOL_LIT(true)
+    | "return" -> RETURN
     | "false" -> BOOL_LIT(false)
     | "plus" -> PLUS
     | "minus" -> MINUS
@@ -72,6 +73,8 @@ rule token = parse
     | "as" -> AS
     | "string" -> STRING
     | "boolean" -> BOOLEAN
+    | "map" -> MAP
+    | "set" -> SET
     | "number" -> NUMBER
     | "integer" -> INTEGER
     | "to" -> TO
