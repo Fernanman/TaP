@@ -80,7 +80,7 @@ let check (globals, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
-    let can_cast from_t to_t = match from_t to_t with
+    let compatible from_t to_t = match from_t to_t with
     | Int, Num -> true
     | Num, Int -> true
     | t1, t2 when t1 = t2 -> true
@@ -96,7 +96,7 @@ let check (globals, functions) =
 
       | As(e1, etype) -> 
           let (et, e') = check_expr e1 in
-          if can_cast et etype then (etype, SAs((et, e'), etype))
+          if compatible et etype then (etype, SAs((et, e'), etype))
           else raise (Failure ("type mismatch in 'as' operation"))
 
       | At(e1, e2) -> 
@@ -113,19 +113,19 @@ let check (globals, functions) =
         let err = "illegal binary operator " ^
                   string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                   string_of_typ t2 ^ " in " ^ string_of_expr e
-        in     
-        (* All binary operators require operands of the same type*)
-        if t1 = t2 then
-          (* Determine expression type based on operator and operand types *)
+        in
+        if compatible t1 t2 then
           let t = match op with
-              Add | Sub when t1 = Int -> Int
+              Add | Sub | Mult | Div | Mod when (t1 = Int && t2 = Int) -> Int
+            | Add | Sub | Mult | Div when (t1 = Num || t2 = Num) -> Num
             | Equal | Neq -> Bool
-            | Less when t1 = Int -> Bool
+            | Less | Greater | Geq | Leq when (t1 = Int || t1 = Num) -> Bool
             | And | Or when t1 = Bool -> Bool
             | _ -> raise (Failure err)
           in
           (t, SBinop((t1, e1'), op, (t2, e2')))
         else raise (Failure err)
+
       | Call(fname, args) as call ->
         let fd = find_func fname in
         let param_length = List.length fd.formals in
