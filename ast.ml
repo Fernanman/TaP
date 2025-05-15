@@ -1,7 +1,7 @@
 (* Binary operators *)
 type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or | Mod
 
-type typ = Int | Num | Bool | Map | Set | List
+type typ = Int | Num | Bool | List | String
 
 type expr =
   | IntLit of int
@@ -12,7 +12,7 @@ type expr =
   | As of expr * typ
   | At of expr * expr
   | Binop of expr * bop * expr
-  | List of expr list
+  | ListLit of expr list
   | Assign of string * expr
   | Call of string * expr list
 

@@ -29,6 +29,7 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIVIDE MOD
 %left AS
+%nonassoc AT
 
 %%
 
@@ -36,12 +37,12 @@ program:
   decls EOF { $1}
 
 decls:
-   /* nothing */ { ([], [])               }
+   /* nothing */ { ([], []) }
  | vdecl_rule NL decls { (($1 :: fst $3), snd $3) }
  | fdecl_rule decls { (fst $2, ($1 :: snd $2)) }
 
 vdecl_list_rule:
-  /*nothing*/                   { []       }
+  /*nothing*/                   { [] }
   | vdecl_rule NL vdecl_list_rule  { $1 :: $3 }
 
 vdecl_rule:
@@ -72,16 +73,16 @@ stmt_list_rule:
 
 stmt_rule:
   expr_rule NL                                                           { Expr $1         }
-  | IF expr_rule NL stmt_rule END IF                                     { If ($2, Block $4)     }
-  | WHILE expr_rule NL stmt_rule END WHILE                               { While ($2, Block $4)  }
-  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_rule END FOR NL  { For ($2, $4, $6, Block $9)}
+  | IF expr_rule NL stmt_list_rule END IF                                     { If ($2, Block $4)     }
+  | WHILE expr_rule NL stmt_list_rule END WHILE                               { While ($2, Block $4)  }
+  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_list_rule END FOR NL  { For ($2, $4, $6, Block $9)}
   | BREAK NL                                                                    { Break }
   | CONT NL                                                              { Continue }
   | RETURN expr_rule NL                        { Return $2 }
 
 optional_step:
-    /* nothing */ { }
-    | STEP INT_LIT { $2 }
+    /* nothing */ { None }
+    | STEP INT_LIT { Some $2 }
 
 param_list:
     /* nothing */ { [] }
@@ -99,9 +100,6 @@ expr_rule:
   | NUM_LIT                       { NumLit $1               }
   | STRING_LIT                     { StringLit $1            }
   | IDENTIFIER                    { Id $1                   }
-/*  | MAP                           { Map                     } */
-/*  | SET                           { Set                     } */
-  // | LPAREN RPAREN { List([]) }
   | expr_rule AS typ_rule         { As ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
   | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }
@@ -118,5 +116,16 @@ expr_rule:
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
   | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
   | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
-  | LPAREN expr_rule RPAREN { $2 }
+  | list_literal { $1 }
+  | LPAREN expr_rule RPAREN { $2 } /* expr_rule can't be empty */
 
+list_literal:
+  | LPAREN RPAREN             { ListLit [] }
+  | LPAREN list_items RPAREN   { ListLit $2 }
+
+list_items:
+  | expr_rule COMMA                  { [$1] }
+  | expr_rule COMMA list_items       { $1 :: $3 }
+
+/* Example of lists: (), (,), (1,), (1,2,) */
+/* Example of non-lists: (1), (1, 2, 3) */
