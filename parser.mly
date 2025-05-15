@@ -40,14 +40,14 @@ program:
 decls:
    /* nothing */ { ([], []) }
  | vdecl_rule NL decls { (($1 :: fst $3), snd $3) }
- | fdecl_rule decls { (fst $2, ($1 :: snd $2)) }
+ | fdecl_rule NL decls { (fst $3, ($1 :: snd $3)) }
 
 vdecl_list_rule:
   /*nothing*/                   { [] }
   | vdecl_rule NL vdecl_list_rule  { $1 :: $3 }
 
 vdecl_rule:
-  typ_rule IDENTIFIER NL { ($1, $2) }
+  typ_rule IDENTIFIER { ($1, $2) }
 
 typ_rule:
   | NUMBER    { Num }
