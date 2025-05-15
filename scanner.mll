@@ -16,7 +16,7 @@ let line_terminator = '.' (whitespace | eof)
 (* Do not have comments as of now *)
 rule token = parse
   whitespace { token lexbuf } (* Whitespace *)
-| line_terminator  { NL }
+| line_terminator  { print_endline "NL" ; NL }
 | '('      { LPAREN }
 | ')'      { RPAREN }
 | ','      { COMMA }
@@ -41,6 +41,7 @@ rule token = parse
     let standard_id = String.lowercase_ascii lem in
     match standard_id with
     | "true" -> BOOL_LIT(true)
+    | "return" -> RETURN
     | "false" -> BOOL_LIT(false)
     | "plus" -> PLUS
     | "minus" -> MINUS
