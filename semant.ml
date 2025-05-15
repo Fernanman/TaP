@@ -28,9 +28,9 @@ let check (globals, functions) =
   (* Collect function declarations for built-in functions: no bodies *)
   let built_in_decls =
     StringMap.add "print" {
-      rtyp = Num;  (* Let's assume "print" prints numbers *)
+      rtyp = Int;  (* Let's assume "print" prints integers *)
       fname = "print";
-      formals = [(Num, "x")];
+      formals = [(Int, "x")];
       locals = []; body = [] } StringMap.empty
   in
 
