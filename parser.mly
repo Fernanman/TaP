@@ -10,7 +10,7 @@ open Ast
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
 %token IF ELSE WHILE FUN END FOR 
 %token RETURN COMMA BREAK CONT STEP NULL IN AS TO AT
-%token STRING BOOLEAN MAP SET LIST NUMBER INTEGER
+%token STRING BOOLEAN LIST NUMBER INTEGER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
 %token <float> NUM_LIT
@@ -22,6 +22,7 @@ open Ast
 %type <Ast.program> program
 
 %right ASSIGN
+%nonassoc IN
 %left OR
 %left AND
 %left EQ NEQ LEQ GEQ
@@ -29,6 +30,7 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIVIDE MOD
 %left AS
+%nonassoc AT
 
 %%
 
@@ -36,16 +38,16 @@ program:
   decls EOF { $1}
 
 decls:
-   /* nothing */ { ([], [])               }
+   /* nothing */ { ([], []) }
  | vdecl_rule NL decls { (($1 :: fst $3), snd $3) }
- | fdecl_rule decls { (fst $2, ($1 :: snd $2)) }
+ | fdecl_rule NL decls { (fst $3, ($1 :: snd $3)) }
 
 vdecl_list_rule:
-  /*nothing*/                   { []       }
+  /*nothing*/                   { [] }
   | vdecl_rule NL vdecl_list_rule  { $1 :: $3 }
 
 vdecl_rule:
-  typ_rule IDENTIFIER NL { ($1, $2) }
+  typ_rule IDENTIFIER { ($1, $2) }
 
 typ_rule:
   | NUMBER    { Num }
@@ -71,17 +73,17 @@ stmt_list_rule:
     | stmt_rule NL stmt_list_rule  { $1::$3 }
 
 stmt_rule:
-  expr_rule NL                                                           { Expr $1         }
-  | IF expr_rule NL stmt_rule END IF                                     { If ($2, Block $4)     }
-  | WHILE expr_rule NL stmt_rule END WHILE                               { While ($2, Block $4)  }
-  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_rule END FOR NL  { For ($2, $4, $6, Block $9)}
-  | BREAK NL                                                                    { Break }
-  | CONT NL                                                              { Continue }
-  | RETURN expr_rule NL                        { Return $2 }
+  expr_rule                                                           { Expr $1         }
+  | IF expr_rule NL stmt_list_rule END IF                                    { If ($2, Block $4)     }
+  | WHILE expr_rule NL stmt_list_rule END WHILE                              { While ($2, Block $4)  }
+  | FOR IDENTIFIER IN INT_LIT TO INT_LIT optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
+  | BREAK                                                                    { Break }
+  | CONT                                                              { Continue }
+  | RETURN expr_rule                        { Return $2 }
 
 optional_step:
-    /* nothing */ { }
-    | STEP INT_LIT { $2 }
+    /* nothing */ { None }
+    | STEP INT_LIT { Some $2 }
 
 param_list:
     /* nothing */ { [] }
@@ -99,9 +101,6 @@ expr_rule:
   | NUM_LIT                       { NumLit $1               }
   | STRING_LIT                     { StringLit $1            }
   | IDENTIFIER                    { Id $1                   }
-/*  | MAP                           { Map                     } */
-/*  | SET                           { Set                     } */
-  // | LPAREN RPAREN { List([]) }
   | expr_rule AS typ_rule         { As ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
   | expr_rule MINUS expr_rule     { Binop ($1, Sub, $3)     }
@@ -116,7 +115,20 @@ expr_rule:
   | expr_rule GT expr_rule        { Binop ($1, Greater, $3) }
   | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
-  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3)         }
   | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
-  | LPAREN expr_rule RPAREN { $2 }
+  | expr_rule AT expr_rule { At ($1, $3) } /* expr needs to be IntLit */
+  | expr_rule IN expr_rule { Contains ($1, $3) } /* membership check */
+  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3) }
+  | list_literal { $1 }
+  | LPAREN expr_rule RPAREN { $2 } /* expr_rule can't be empty */
 
+list_literal:
+  | LPAREN RPAREN { ListLit [] }
+  | LPAREN list_items RPAREN  { ListLit $2 }
+
+list_items:
+  | expr_rule COMMA                  { [$1] }
+  | expr_rule COMMA list_items       { $1 :: $3 }
+
+/* Example of lists: (), (,), (1,), (1,2,) */
+/* Example of non-lists: (1), (1, 2, 3) */

@@ -15,3 +15,5 @@ tap.tb
 tap.txt
 pretty_print.cmi
 pretty_print.cmo
+_build/*
+*.native
