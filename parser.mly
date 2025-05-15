@@ -54,7 +54,7 @@ typ_rule:
   | BOOLEAN    { Bool }
   | INTEGER { Int }
   | STRING { String }
-  | LIST { List }
+  | LIST typ_rule { List $2 }
 
 fdecl_rule:
   FUN vdecl_rule LPAREN param_list RPAREN NL vdecl_list_rule stmt_list_rule END FUN

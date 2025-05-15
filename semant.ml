@@ -93,14 +93,15 @@ let check (globals, functions) =
       | NumLit l -> (Num, SNumLit l)
       | StringLit l -> (String, SStringLit l)
 
-      | ListLit l -> 
-      (match l with
-        | [] -> (List Null, SListLit l)
-        | hd :: _ -> let (ty_hd, _) = check_expr hd in
-        let sem_elemes = List.map (fun e ->
-        let (ty, se) = check_expr e in
-        if not (ty = ty_hd) then raise (Failure ("type mismatch in list literal: expected " ^ string_of_typ ty_hd ^ ", got " ^ string_of_typ ty))
-        else se) l in (List ty_hd, SListLit sem_elemes)
+      | ListLit l -> (match l with
+        | [] -> (List Null, SListLit [])
+        | hd :: _ -> let (head_ty, _) = check_expr hd in
+          let lst_elems = List.map (fun e ->
+            let (ty, se) = check_expr e in
+            if not (ty = head_ty) then
+              raise (Failure ("type mismatch in list literal: expected " ^ string_of_typ head_ty ^ ", got " ^ string_of_typ ty))
+            else se) l in
+          (List head_ty, SListLit lst_elems)
       )
 
       | Id var -> (type_of_identifier var, SId var)

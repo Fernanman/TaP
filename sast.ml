@@ -12,7 +12,7 @@ and sx =
   | SAs of sexpr * typ
   | SAt of sexpr * sexpr
   | SBinop of sexpr * bop * sexpr
-  | SListLit of sexpr list
+  | SListLit of typ * sexpr list
   | SAssign of string * sexpr
   | SCall of string * sexpr list
   | SContains of sexpr * sexpr
