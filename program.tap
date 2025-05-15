@@ -1,5 +1,11 @@
+fun integer yap().
+return 2.
+end fun.
+
 fun integer main(). 
-integer a.
-a is 2.
-print(a).
+  iNtegEr i.
+  I is 3.
+  fOr i iN 3 To 10.
+  print(yap()).
+  ENd for.
 end fun. 
