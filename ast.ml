@@ -25,7 +25,6 @@ type stmt =
   | For of string * int * int * stmt
   | Break
   | Continue
-  | Free of string
   | Return of expr
 
 type bind = typ * string
