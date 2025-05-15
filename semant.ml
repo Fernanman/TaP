@@ -92,20 +92,40 @@ let check (globals, functions) =
       | BoolLit l -> (Bool, SBoolLit l)
       | NumLit l -> (Num, SNumLit l)
       | StringLit l -> (String, SStringLit l)
+
+      | ListLit l -> 
+      (match l with
+        | [] -> (List Null, SListLit l)
+        | hd :: _ -> let (ty_hd, _) = check_expr hd in
+        let sem_elemes = List.map (fun e ->
+        let (ty, se) = check_expr e in
+        if not (ty = ty_hd) then raise (Failure ("type mismatch in list literal: expected " ^ string_of_typ ty_hd ^ ", got " ^ string_of_typ ty))
+        else se) l in (List ty_hd, SListLit sem_elemes)
+      )
+
       | Id var -> (type_of_identifier var, SId var)
 
       | As(e1, etype) -> 
           let (et, e') = check_expr e1 in
           if compatible et etype then (etype, SAs((et, e'), etype))
-          else raise (Failure ("type mismatch in 'as' operation"))
+          else raise (Failure ("type mismatch in 'as' operation. type " ^ string_of_typ et ^ " incompatible with  type " ^ string_of_typ etype))
 
       | At(e1, e2) -> 
           let (et1, e1') = check_expr e1
           and (et2, e2') = check_expr e2 in
-          if not (et2 = Int) then raise (Failure ("invalid 'at' operation: index must be Int")) (* implement string_of_typ in ast.ml*)
+          if not (et2 = Int) then raise (Failure ("invalid 'at' operation: index must be Int, got " ^ string_of_typ et2))
           else match et1 with
+          | List lst_t when lst_t = Null -> raise (Failure ("empty list not subscriptable"))
           | List lst_t -> (lst_t, SAt ((et1, e1'), (et2, e2')))
           | String -> (String, SAt ((et1, e1'), (et2, e2')))
+          | _ -> raise (Failure ("type " ^ string_of_typ et1 ^ " not subscriptable"))
+      
+      | Contains (elem_expr, list_expr) ->
+        let (elem_ty, se_elem) = check_expr elem_expr in
+        let (list_ty, se_list) = check_expr list_expr in
+        (match list_ty with
+        | List t -> (Bool, SContains ((elem_ty, se_elem), (list_ty, se_list)))
+        | _ -> raise (Failure ("invalid 'in' operation: expected type list, got " ^ string_of_typ list_ty)))
 
       | Binop(e1, op, e2) as e ->
         let (t1, e1') = check_expr e1
@@ -146,7 +166,7 @@ let check (globals, functions) =
       let (t, e') = check_expr e in
       match t with
       | Bool -> (t, e')
-      |  _ -> raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
+      |  _ -> raise (Failure ("expected Boolean expression in " ^ string_of_expr e ^ ", got " ^ string_of_typ t))
     in
 
     let rec check_stmt_list = function
@@ -154,27 +174,25 @@ let check (globals, functions) =
       | Block sl :: sl'  -> check_stmt_list (sl @ sl') (* Flatten blocks *)
       | s :: sl -> check_stmt s :: check_stmt_list sl
     (* Return a semantically-checked statement i.e. containing sexprs *)
-    and check_stmt =function
+    and check_stmt = function
       (* A block is correct if each statement is correct and nothing
          follows any Return statement.  Nested blocks are flattened. *)
         Block sl -> SBlock (check_stmt_list sl)
       | Expr e -> SExpr (check_expr e)
-      | If(e, st) ->
-        SIf(check_bool_expr e, check_stmt st)
-      | While(e, st) ->
-        SWhile(check_bool_expr e, check_stmt st)
-      | For(id, from_id, to_id, st) ->
-        let check_bound (bound_type, value_expr) =
-          let (value_type, _) = check_expr value_expr in
-          if value_type = bound_type then () else
-            raise (Failure ("for-loop bound mismatch"))
-        in
-        check_bound (Num, IntLit from_id);
-        check_bound (Num, IntLit to_id);
-        SFor(id, from_id, to_id, check_stmt st)
+      | If(e, st) -> SIf(check_bool_expr e, check_stmt st)
+      | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
+
+      | For(id, start_e, end_e, st) ->
+        let (start_ty, start_e') = check_expr start_e in
+        let (end_ty, end_e') = check_expr end_e in
+        if (not (start_ty = Int)) || (not (end_ty = Int)) then
+          raise (Failure ("for loop bounds must be integers, got " ^ string_of_typ start_ty ^ " and " ^ string_of_typ end_ty))
+        else
+          SFor(id, start_e, end_e, check_stmt st)
+      (* For loop step ignored for now*)
+
       | Break -> SBreak
       | Continue -> SContinue
-      | Free(id) -> SFree id
       | Return e ->
         let (t, e') = check_expr e in
         if t = func.rtyp then SReturn (t, e')

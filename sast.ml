@@ -15,7 +15,7 @@ and sx =
   | SListLit of sexpr list
   | SAssign of string * sexpr
   | SCall of string * sexpr list
-  | SContains of sexpir * expir
+  | SContains of sexpr * sexpr
 
 type sstmt =
     SBlock of sstmt list

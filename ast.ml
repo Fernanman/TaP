@@ -1,7 +1,7 @@
 (* Binary operators *)
 type bop = Add | Sub | Mult | Div | Equal | Neq | Less | Greater | Geq | Leq | And | Or | Mod
 
-type typ = Int | Num | Bool | List | String
+type typ = Int | Num | Bool | List of typ | String | Null
 
 type expr =
   | IntLit of int
@@ -63,6 +63,7 @@ let string_of_typ = function
   | Bool -> "bool"
   | List -> "list"
   | String -> "string"
+  | Null -> "null"
 
 
 let rec string_of_expr = function
