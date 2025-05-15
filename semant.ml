@@ -80,22 +80,33 @@ let check (globals, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
+    let can_cast from_t to_t = match from_t to_t with
+    | Int, Num -> true
+    | Num, Int -> true
+    | t1, t2 when t1 = t2 -> true
+    | _ -> false
+
     (* Return a semantically-checked expression, i.e., with a type *)
     let rec check_expr = function
-        IntLit l -> (Num, SIntLit l)
+        IntLit l -> (Int, SIntLit l)
       | BoolLit l -> (Bool, SBoolLit l)
       | NumLit l -> (Num, SNumLit l)
-      | StringLit l -> (Map, SStringLit l) (* Assuming Map is used for strings *)
+      | StringLit l -> (String, SStringLit l)
       | Id var -> (type_of_identifier var, SId var)
+
       | As(e1, etype) -> 
           let (et, e') = check_expr e1 in
-          if et = etype then (etype, SAs((et, e'), etype))
+          if can_cast et etype then (etype, SAs((et, e'), etype))
           else raise (Failure ("type mismatch in 'as' operation"))
+
       | At(e1, e2) -> 
           let (et1, e1') = check_expr e1
           and (et2, e2') = check_expr e2 in
-          if et1 = Map && et2 = Num then (et1, SAt((et1, e1'), (et2, e2')))
-          else raise (Failure ("invalid 'at' operation, expected map and num"))
+          if not (et2 = Int) then raise (Failure ("invalid 'at' operation: index must be Int")) (* implement string_of_typ in ast.ml*)
+          else match et1 with
+          | List lst_t -> (lst_t, SAt ((et1, e1'), (et2, e2')))
+          | String -> (String, SAt ((et1, e1'), (et2, e2')))
+
       | Binop(e1, op, e2) as e ->
         let (t1, e1') = check_expr e1
         and (t2, e2') = check_expr e2 in
@@ -138,7 +149,7 @@ let check (globals, functions) =
       |  _ -> raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
     in
 
-    let rec check_stmt_list =function
+    let rec check_stmt_list = function
         [] -> []
       | Block sl :: sl'  -> check_stmt_list (sl @ sl') (* Flatten blocks *)
       | s :: sl -> check_stmt s :: check_stmt_list sl
