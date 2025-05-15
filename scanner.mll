@@ -75,6 +75,7 @@ rule token = parse
     | "map" -> MAP
     | "set" -> SET
     | "number" -> NUMBER
+    | "integer" -> INTEGER
     | "to" -> TO
     | _ -> IDENTIFIER(standard_id) 
  }
