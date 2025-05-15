@@ -17,3 +17,4 @@ pretty_print.cmi
 pretty_print.cmo
 _build/*
 *.native
+*.sh
