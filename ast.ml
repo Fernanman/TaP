@@ -13,7 +13,6 @@ type expr =
   | At of expr * expr
   | Binop of expr * bop * expr
   | ListLit of expr list
-  | Assign of string * expr
   | Call of string * expr list
   | Contains of expr * expr
 
@@ -26,6 +25,7 @@ type stmt =
   | Break
   | Continue
   | Return of expr
+  | Assign of string * expr
 
 type bind = typ * string
 
@@ -78,7 +78,6 @@ let rec string_of_expr = function
   | Binop(e1, o, e2) ->
     string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Call (fname, args) -> fname ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
-  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
   | ListLit es -> "[" ^ String.concat ", " (List.map string_of_expr es) ^ "]\n"
   | Contains (e1, e2) -> string_of_expr e1 ^ " in " ^ string_of_expr e2
 
@@ -93,6 +92,7 @@ let rec string_of_stmt = function
   | Break -> "break"
   | Continue -> "continue"
   | Return(e) -> "return" ^ string_of_expr e
+  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
 
 let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ "\n"
 

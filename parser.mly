@@ -74,12 +74,14 @@ stmt_list_rule:
 
 stmt_rule:
   expr_rule                                                           { Expr $1         }
+  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3) }
   | IF expr_rule NL stmt_list_rule END IF                                    { If ($2, Block $4)     }
   | WHILE expr_rule NL stmt_list_rule END WHILE                              { While ($2, Block $4)  }
   | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
   | BREAK                                                                    { Break }
   | CONT                                                              { Continue }
   | RETURN expr_rule                        { Return $2 }
+  
 
 optional_step:
     /* nothing */ { None }
@@ -118,7 +120,6 @@ expr_rule:
   | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
   | expr_rule AT expr_rule { At ($1, $3) } /* expr needs to be IntLit */
   | expr_rule IN expr_rule { Contains ($1, $3) } /* membership check */
-  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3) }
   | list_literal { $1 }
   | LPAREN expr_rule RPAREN { $2 } /* expr_rule can't be empty */
 

@@ -80,11 +80,12 @@ let check (globals, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
-    let compatible from_t to_t = match from_t to_t with
+    let compatible from_t to_t = match (from_t, to_t) with
     | Int, Num -> true
     | Num, Int -> true
     | t1, t2 when t1 = t2 -> true
     | _ -> false
+    in
 
     (* Return a semantically-checked expression, i.e., with a type *)
     let rec check_expr = function
@@ -100,7 +101,7 @@ let check (globals, functions) =
             let (ty, se) = check_expr e in
             if not (ty = head_ty) then
               raise (Failure ("type mismatch in list literal: expected " ^ string_of_typ head_ty ^ ", got " ^ string_of_typ ty))
-            else se) l in
+            else (ty, se)) l in
           (List head_ty, SListLit lst_elems)
       )
 
@@ -115,11 +116,11 @@ let check (globals, functions) =
           let (et1, e1') = check_expr e1
           and (et2, e2') = check_expr e2 in
           if not (et2 = Int) then raise (Failure ("invalid 'at' operation: index must be Int, got " ^ string_of_typ et2))
-          else match et1 with
+          else (match et1 with
           | List lst_t when lst_t = Null -> raise (Failure ("empty list not subscriptable"))
           | List lst_t -> (lst_t, SAt ((et1, e1'), (et2, e2')))
           | String -> (String, SAt ((et1, e1'), (et2, e2')))
-          | _ -> raise (Failure ("type " ^ string_of_typ et1 ^ " not subscriptable"))
+          | _ -> raise (Failure ("type " ^ string_of_typ et1 ^ " not subscriptable")))
       
       | Contains (elem_expr, list_expr) ->
         let (elem_ty, se_elem) = check_expr elem_expr in
@@ -183,13 +184,21 @@ let check (globals, functions) =
       | If(e, st) -> SIf(check_bool_expr e, check_stmt st)
       | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
 
+      | Assign(var, e) ->
+        let var_typ = type_of_identifier var in
+        let (expr_typ, se) = check_expr e in
+        let _ = check_assign var_typ expr_typ
+          ("illegal assignment: " ^ string_of_typ expr_typ ^ " -> " ^ string_of_typ var_typ)
+        in
+        SAssign(var, (expr_typ, se))
+
       | For(id, start_e, end_e, st) ->
         let (start_ty, start_e') = check_expr start_e in
         let (end_ty, end_e') = check_expr end_e in
         if (not (start_ty = Int)) || (not (end_ty = Int)) then
           raise (Failure ("for loop bounds must be integers, got " ^ string_of_typ start_ty ^ " and " ^ string_of_typ end_ty))
         else
-          SFor(id, start_e, end_e, check_stmt st)
+          SFor(id, (start_ty, start_e'), (end_ty, end_e'), check_stmt st)
       (* For loop step ignored for now*)
 
       | Break -> SBreak

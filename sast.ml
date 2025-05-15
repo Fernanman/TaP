@@ -12,8 +12,7 @@ and sx =
   | SAs of sexpr * typ
   | SAt of sexpr * sexpr
   | SBinop of sexpr * bop * sexpr
-  | SListLit of typ * sexpr list
-  | SAssign of string * sexpr
+  | SListLit of sexpr list
   | SCall of string * sexpr list
   | SContains of sexpr * sexpr
 
@@ -22,10 +21,11 @@ type sstmt =
   | SExpr of sexpr
   | SIf of sexpr * sstmt
   | SWhile of sexpr * sstmt
-  | SFor of string * int * int * sstmt
+  | SFor of string * sexpr * sexpr * sstmt
   | SBreak
   | SContinue
   | SReturn of sexpr
+  | SAssign of string * sexpr
 
 type sfunc_def = {
   srtyp: typ;
