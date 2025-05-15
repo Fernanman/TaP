@@ -1,8 +1,8 @@
 fun number hi(number x).
-list x.
+list integer x.
 integer i.
 x is (1, 2, 3,).
-while i in x.
+for i in 1 to 5.
 break.
-end while.
+end for.
 end fun.
