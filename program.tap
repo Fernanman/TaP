@@ -1,12 +1,6 @@
 integer i.
-
 i is 10.
+
 fun integer yap().
-    printint(i).
-
-    integer i.
     i is 5.
-    printint(i).
 end fun.
-
-printint(i).
