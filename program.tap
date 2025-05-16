@@ -1,4 +1,9 @@
 fun integer main(). 
-printstring('hello' + ' ' + 'world').
+integer i.
+i is 2.
 
+while i geq 0.
+printstring('hello').
+i is i minus 1.
+end while.
 end fun. 

@@ -88,9 +88,9 @@ let check (globals, functions) =
     in
 
     let compatible from_t to_t = match (from_t, to_t) with
-    | Int, Num -> true
-    | Num, Int -> true
-    | t1, t2 when t1 = t2 -> true
+    | (Int, Num) -> true
+    | (Num, Int) -> true
+    | (t1, t2) when t1 = t2 -> true
     | _ -> false
     in
 
