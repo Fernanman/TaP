@@ -1,4 +1,12 @@
 fun integer main(). 
-printstring('hello' + ' ' + 'world').
+integer i.
+
+
+for i in 0 to 5.
+printint(2).
+cont.
+printint(1).
+end for.
+
 
 end fun. 
