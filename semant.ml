@@ -43,6 +43,11 @@ let check (globals, functions) =
       fname = "printnum";
       formals = [(Num, "x")];
       body = [] }
+    |> StringMap.add "strlen" {
+      rtyp = Int;
+      fname = "strlen";
+      formals = [(String, "x")];
+      body = [] }
 
   in
 

@@ -1,4 +1,8 @@
 fun integer main(). 
-printstring('hello' + ' ' + 'world').
+string i.
+i is 'hello' + ' ' + 'world'.
+
+printstring(i).
+printint(strlen(i)).
 
 end fun. 
