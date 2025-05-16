@@ -127,23 +127,14 @@ let translate (globals, functions) =
       (* Builder for list expression *)
       | SListLit elems ->
         let ll_elems = List.map (build_expr builder) elems in
-        let element_type =
-          match elems with
-          | (t, _)::_ -> ltype_of_typ t
-          (* TODO: Handle empty lists *)
-          | [] -> failwith "Cannot infer type of empty list"
-        in
-        (* let array_type = L.array_type element_type (List.length ll_elems) in *)
-        let arr = L.const_array element_type (Array.of_list ll_elems) in
-        (* Question: Can only have one for now? *)
-        let global = L.define_global "listlit" arr the_module in
-        L.const_bitcast global (L.pointer_type element_type)
+          let arr = L.const_array i32_t (Array.of_list ll_elems) in
+            let global = L.define_global "listlit" arr the_module in
+            L.build_in_bounds_gep global [| L.const_int i32_t 0; L.const_int i32_t 0 |] "list_ptr" builder
       (* For indexing expressions *)
       | SAt (lst_expr, index_expr) ->
-        let lst_val = build_expr builder lst_expr in
-        let idx_val = build_expr builder index_expr in
-        (* Same thing wondering about the use of "at" here *)
-        let gep = L.build_in_bounds_gep lst_val [| L.const_int i32_t 0; idx_val |] "at" builder in
+        let lst_val = build_expr builder lst_expr in  (* i32* *)
+        let idx_val = build_expr builder index_expr in  (* i32 *)
+        let gep = L.build_in_bounds_gep lst_val [| idx_val |] "at" builder in
         L.build_load gep "load_elem" builder
       | SAs (sexp, t) -> failwith "Type casting not currently supported"
       | SContains (sexp1, sexp2) -> failwith "Contains not implemented"
