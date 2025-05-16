@@ -1,0 +1,8 @@
+fun integer main(). 
+string i.
+i is 'hello' + ' ' + 'world'.
+
+printstring(i).
+printint(strlen(i)).
+
+end fun.
