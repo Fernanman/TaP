@@ -64,6 +64,7 @@ let translate (globals, functions) =
 
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
     let string_format_str = L.build_global_stringptr "%s\n" "fmt" builder in
+    let num_format_str = L.build_global_stringptr "%.2f\n" "fmt" builder in
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -101,6 +102,8 @@ let translate (globals, functions) =
       | SStringLit s -> L.build_global_stringptr s "str" builder
       | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
       | SId s       -> L.build_load (lookup s) s builder
+
+      (* String concatenation *)
       | SBinop ((t1, s1), A.Add, (t2, s2)) when t1 = A.String && t2 = A.String ->
         let e1 = (t1, s1) in
         let e2 = (t2, s2) in 
@@ -119,15 +122,14 @@ let translate (globals, functions) =
             [| L.pointer_type i8_t; L.pointer_type i8_t; i32_t; i1_t |])
           the_module
         in
-
-
         ignore (L.build_call memcpy_func [| dest; str1; len1; L.const_int i1_t 0 |] "" builder);
         let dest_offset = L.build_in_bounds_gep dest [| len1 |] "dest_offset" builder in
         ignore (L.build_call memcpy_func [| dest_offset; str2; len2; L.const_int i1_t 0 |] "" builder);
         let null_pos = L.build_in_bounds_gep dest [| total_len |] "null_pos" builder in
         ignore (L.build_store (L.const_int i8_t 0) null_pos builder);
-
         dest  (* <-- this is the last expression of this case *)
+
+
       | SBinop (e1, op, e2) ->
         let e1' = build_expr builder e1
         and e2' = build_expr builder e2 in
@@ -146,6 +148,8 @@ let translate (globals, functions) =
          | A.Leq     -> L.build_icmp L.Icmp.Sle
          | A.Less    -> L.build_icmp L.Icmp.Slt
         ) e1' e2' "tmp" builder
+
+
       (* TODO: Call to a print function, come back to later *)
       | SCall ("printint", [e]) ->
         L.build_call printf_func [| int_format_str ; (build_expr builder e) |]
@@ -153,6 +157,9 @@ let translate (globals, functions) =
       | SCall ("printstring", [e]) ->
         L.build_call printf_func [| string_format_str ; (build_expr builder e) |]
           "printf_str" builder
+      | SCall ("printnum", [e]) ->
+        L.build_call printf_func [| num_format_str ; (build_expr builder e) |]
+          "printf_num" builder
       | SCall ("strlen", [e]) ->
         let value = build_expr builder e in
         L.build_call strlen_func [| value |] "strlen" builder
@@ -161,6 +168,8 @@ let translate (globals, functions) =
         let llargs = List.rev (List.map (build_expr builder) (List.rev args)) in
         let result = f ^ "_result" in
         L.build_call fdef (Array.of_list llargs) result builder
+
+
       (* Builder for list expression *)
       | SListLit elems ->
         let ll_elems = List.map (build_expr builder) elems in
