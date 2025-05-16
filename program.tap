@@ -1,6 +1,8 @@
 fun integer main(). 
-list iNtegEr ba.
 string mystring.
-mystring is 'hello' at 1.
-printstring(mystring).
+integer i.
+
+mystring is 'helo'.
+printint(strlen(mystring)).
+
 end fun. 

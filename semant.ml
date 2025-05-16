@@ -38,6 +38,12 @@ let check (globals, functions) =
       fname = "printstr";
       formals = [(String, "x")];
       locals = []; body = [] }
+    |> StringMap.add "strlen" {
+      rtyp = Int;
+      fname = "strlen";
+      formals = [(String, "x")];
+      locals = []; body = [] 
+      }
   in
 
   (* Add function name to symbol table *)
