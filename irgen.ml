@@ -60,6 +60,7 @@ let translate (globals, functions) =
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let string_format_str = L.build_global_stringptr "%s\n" "fmt" builder in
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -116,9 +117,12 @@ let translate (globals, functions) =
          | A.Less    -> L.build_icmp L.Icmp.Slt
         ) e1' e2' "tmp" builder
       (* TODO: Call to a print function, come back to later *)
-      | SCall ("print", [e]) ->
+      | SCall ("printint", [e]) ->
         L.build_call printf_func [| int_format_str ; (build_expr builder e) |]
-          "printf" builder
+          "printf_int " builder
+      | SCall ("printstring", [e]) ->
+        L.build_call printf_func [| string_format_str ; (build_expr builder e) |]
+          "printf_str" builder
       | SCall (f, args) ->
         let (fdef, fdecl) = StringMap.find f function_decls in
         let llargs = List.rev (List.map (build_expr builder) (List.rev args)) in

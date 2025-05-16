@@ -1,5 +1,4 @@
 fun integer main(). 
 list iNtegEr ba.
-ba is (1,2,).
-print(ba at 1).
+printstring('hello').
 end fun. 
