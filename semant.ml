@@ -199,7 +199,12 @@ let check (globals, functions) =
          follows any Return statement.  Nested blocks are flattened. *)
         Block sl -> SBlock (check_stmt_list sl)
       | Expr e -> SExpr (check_expr e)
-      | If(e, st) -> SIf(check_bool_expr e, check_stmt st)
+      | If(e, st, sto) ->
+          let s_else = match sto with
+            | Some stmt -> Some (check_stmt stmt)
+            | None -> None
+          in SIf(check_bool_expr e, check_stmt st, s_else)
+  
       | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
 
       | Assign(var, e) ->

@@ -19,7 +19,7 @@ type expr =
 type stmt =
   | Block of stmt list
   | Expr of expr
-  | If of expr * stmt
+  | If of expr * stmt * stmt option
   | While of expr * stmt
   | For of string * expr * expr * stmt
   | Break
@@ -86,8 +86,8 @@ let rec string_of_stmt = function
     Block(stmts) ->
     "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
-  | If(e, s) ->  "if (" ^ string_of_expr e ^ ")\n" ^
-                      string_of_stmt s
+  | If(e, s, s2) ->  "if (" ^ string_of_expr e ^ ")\n" ^
+                      string_of_stmt s ^ (match s2 with | Some stmt -> " else " ^ string_of_stmt stmt | None -> "")
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
   | For(es, ei1, ei2, s) -> "for (" ^ es ^ " in " ^ string_of_expr ei1 ^ " to " ^ string_of_expr ei2 ^ ") " ^ string_of_stmt s
   | Break -> "break"

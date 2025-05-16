@@ -221,21 +221,29 @@ let translate (globals, functions) =
         SBlock sl -> List.fold_left build_stmt builder sl
       | SExpr e -> ignore(build_expr builder e); builder
       | SReturn e -> ignore(L.build_ret (build_expr builder e) builder); builder
-      | SIf (predicate, then_stmt) ->
+      | SIf (predicate, then_stmt, else_opt) ->
         let bool_val = build_expr builder predicate in
-
+        
         let then_bb = L.append_block context "then" the_function in
-        (* ignore (build_stmt (L.builder_at_end context then_bb) then_stmt); *)
+        let else_bb = L.append_block context "else" the_function in
         let end_bb = L.append_block context "if_end" the_function in
         
-         (* Create builder for "then" block and generate code *)
+        ignore (L.build_cond_br bool_val then_bb else_bb builder);
+        
         let then_builder = build_stmt (L.builder_at_end context then_bb) then_stmt in
         add_terminal then_builder (L.build_br end_bb);
+        
+        let _ = match else_opt with
+          | Some else_stmt ->
+              let b = build_stmt (L.builder_at_end context else_bb) else_stmt in
+              add_terminal b (L.build_br end_bb);
+              b
+          | None ->
+              let b = L.builder_at_end context else_bb in
+              add_terminal b (L.build_br end_bb);
+              b
+        in
 
-        (* Build the conditional branch *)
-        ignore (L.build_cond_br bool_val then_bb end_bb builder);
-
-    (* Continue at the end block *)
     L.builder_at_end context end_bb
 
       
