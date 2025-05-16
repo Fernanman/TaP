@@ -26,6 +26,7 @@ type stmt =
   | Continue
   | Return of expr
   | Assign of string * expr
+  | AssignAt of expr * expr * expr
 
 type bind = typ * string
 
@@ -93,6 +94,7 @@ let rec string_of_stmt = function
   | Continue -> "continue"
   | Return(e) -> "return" ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | AssignAt(e1, e2, e3) -> string_of_expr e1 ^ "[" ^ string_of_expr e2 ^ "] = " ^ string_of_expr e3
 
 let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ "\n"
 

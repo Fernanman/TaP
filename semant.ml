@@ -209,6 +209,19 @@ let check (globals, functions) =
           ("illegal assignment: " ^ string_of_typ expr_typ ^ " -> " ^ string_of_typ var_typ)
         in
         SAssign(var, (expr_typ, se))
+      
+      | AssignAt(e_lst, e_idx, e_val) ->
+        let (lst_typ, lst_sx) = check_expr e_lst in
+        let (idx_typ, idx_sx) = check_expr e_idx in
+        let (val_typ, val_sx) = check_expr e_val in
+        (match lst_typ with
+          | List(elem_typ) ->
+            let err = "cannot assign value of type " ^ string_of_typ val_typ ^
+                    " to list element of type " ^ string_of_typ elem_typ in
+          ignore (check_assign elem_typ val_typ err);
+          if not (idx_typ = Int) then raise (Failure ("list index must be Int, got " ^ string_of_typ idx_typ))
+          else SAssignAt ((lst_typ, lst_sx), (idx_typ, idx_sx), (val_typ, val_sx))
+          | _ -> raise (Failure ("cannot index-assign to non-list type " ^ string_of_typ lst_typ)))
 
       | For(id, start_e, end_e, st) ->
         let (start_ty, start_e') = check_expr start_e in

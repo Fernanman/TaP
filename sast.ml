@@ -26,6 +26,7 @@ type sstmt =
   | SContinue
   | SReturn of sexpr
   | SAssign of string * sexpr
+  | SAssignAt of sexpr * sexpr * sexpr
 
 type sfunc_def = {
   srtyp: typ;

@@ -176,6 +176,7 @@ let translate (globals, functions) =
           let arr = L.const_array i32_t (Array.of_list ll_elems) in
             let global = L.define_global "listlit" arr the_module in
             L.build_in_bounds_gep global [| L.const_int i32_t 0; L.const_int i32_t 0 |] "list_ptr" builder
+  
       (* For indexing strings *)
       | SAt ((A.String, _) as lst_expr, index_expr) ->
         let str_val = build_expr builder lst_expr in
@@ -234,6 +235,7 @@ let translate (globals, functions) =
 
     (* Continue at the end block *)
     L.builder_at_end context end_bb
+
       | SWhile (predicate, body) ->
         let while_bb = L.append_block context "while" the_function in
         let build_br_while = L.build_br while_bb in (* partial function *)
@@ -293,6 +295,15 @@ let translate (globals, functions) =
       | SAssign (s, e) -> let e' = build_expr builder e in
         ignore (L.build_store e' (lookup s) builder);
         builder
+
+      | SAssignAt (lst_expr, idx_expr, val_expr) ->
+        let lst_val = build_expr builder lst_expr in
+        let idx_val = build_expr builder idx_expr in
+        let val_val = build_expr builder val_expr in
+        let gep = L.build_in_bounds_gep lst_val [| idx_val |] "index_ptr" builder in
+        ignore (L.build_store val_val gep builder);
+        builder
+      
       | SContinue -> failwith "Continue not currently supported"
       | SBreak -> failwith "Break not implemented"
 
