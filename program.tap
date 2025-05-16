@@ -1,4 +1,6 @@
 fun integer main(). 
 list iNtegEr ba.
-printstring('hello').
+string mystring.
+mystring is 'hello' at 1.
+printstring(mystring).
 end fun. 

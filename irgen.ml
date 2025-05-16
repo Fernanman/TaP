@@ -134,7 +134,22 @@ let translate (globals, functions) =
           let arr = L.const_array i32_t (Array.of_list ll_elems) in
             let global = L.define_global "listlit" arr the_module in
             L.build_in_bounds_gep global [| L.const_int i32_t 0; L.const_int i32_t 0 |] "list_ptr" builder
-      (* For indexing expressions *)
+      (* For indexing strings *)
+      | SAt ((A.String, _) as lst_expr, index_expr) ->
+        let str_val = build_expr builder lst_expr in
+        let idx_val = build_expr builder index_expr in
+        let gep = L.build_in_bounds_gep str_val [| idx_val |] "str_index" builder in
+        let char_val = L.build_load gep "char" builder in
+
+        (* Allocate space for a 2-character string: 1 char + null terminator *)
+        let char_str = L.build_array_alloca i8_t (L.const_int i32_t 2) "char_str" builder in
+        let c0 = L.build_in_bounds_gep char_str [| L.const_int i32_t 0 |] "c0" builder in
+        ignore (L.build_store char_val c0 builder);
+        let c1 = L.build_in_bounds_gep char_str [| L.const_int i32_t 1 |] "c1" builder in
+        ignore (L.build_store (L.const_int i8_t 0) c1 builder);
+
+        char_str
+      (* For indexing lists *)
       | SAt (lst_expr, index_expr) ->
         let lst_val = build_expr builder lst_expr in  (* i32* *)
         let idx_val = build_expr builder index_expr in  (* i32 *)
