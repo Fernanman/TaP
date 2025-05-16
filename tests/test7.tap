@@ -1,0 +1,11 @@
+fun integer main().
+list integer mylist.
+mylist is (1,2,3,4,5,).
+
+printint(mylist at 3).
+
+mylist at 3 is 15.
+
+printint(mylist at 3).
+
+end fun.
