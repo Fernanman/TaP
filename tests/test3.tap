@@ -1,0 +1,8 @@
+fun integer main().
+integer value.
+printint(add_four(5)).
+end fun.
+
+fun integer add_four(input,).
+return input + 4.
+end fun.

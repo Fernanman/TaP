@@ -1,0 +1,5 @@
+fun integer main(). 
+integer n.
+n is 5.
+printint(n).
+end fun. 
