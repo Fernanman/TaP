@@ -101,6 +101,33 @@ let translate (globals, functions) =
       | SStringLit s -> L.build_global_stringptr s "str" builder
       | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
       | SId s       -> L.build_load (lookup s) s builder
+      | SBinop ((t1, s1), A.Add, (t2, s2)) when t1 = A.String && t2 = A.String ->
+        let e1 = (t1, s1) in
+        let e2 = (t2, s2) in 
+        let str1 = build_expr builder e1 in
+        let str2 = build_expr builder e2 in
+
+        let len1 = L.build_call strlen_func [| str1 |] "len1" builder in
+        let len2 = L.build_call strlen_func [| str2 |] "len2" builder in
+        let total_len = L.build_add len1 len2 "total_len" builder in
+        let alloc_size = L.build_add total_len (L.const_int i32_t 1) "alloc_size" builder in
+        let dest = L.build_array_alloca i8_t alloc_size "concat_str" builder in
+
+        let memcpy_func = L.declare_function "llvm.memcpy.p0i8.p0i8.i32"
+          (L.function_type
+            (L.void_type context)
+            [| L.pointer_type i8_t; L.pointer_type i8_t; i32_t; i1_t |])
+          the_module
+        in
+
+
+        ignore (L.build_call memcpy_func [| dest; str1; len1; L.const_int i1_t 0 |] "" builder);
+        let dest_offset = L.build_in_bounds_gep dest [| len1 |] "dest_offset" builder in
+        ignore (L.build_call memcpy_func [| dest_offset; str2; len2; L.const_int i1_t 0 |] "" builder);
+        let null_pos = L.build_in_bounds_gep dest [| total_len |] "null_pos" builder in
+        ignore (L.build_store (L.const_int i8_t 0) null_pos builder);
+
+        dest  (* <-- this is the last expression of this case *)
       | SBinop (e1, op, e2) ->
         let e1' = build_expr builder e1
         and e2' = build_expr builder e2 in

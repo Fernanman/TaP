@@ -38,12 +38,7 @@ let check (globals, functions) =
       fname = "printstr";
       formals = [(String, "x")];
       locals = []; body = [] }
-    |> StringMap.add "strlen" {
-      rtyp = Int;
-      fname = "strlen";
-      formals = [(String, "x")];
-      locals = []; body = [] 
-      }
+
   in
 
   (* Add function name to symbol table *)
@@ -157,6 +152,7 @@ let check (globals, functions) =
           let t = match op with
               Add | Sub | Mult | Div | Mod when (t1 = Int && t2 = Int) -> Int
             | Add | Sub | Mult | Div when (t1 = Num || t2 = Num) -> Num
+            | Add when (t1 = String && t2 = String) -> String
             | Equal | Neq -> Bool
             | Less | Greater | Geq | Leq when (t1 = Int || t1 = Num) -> Bool
             | And | Or when t1 = Bool -> Bool
