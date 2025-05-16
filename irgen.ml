@@ -295,15 +295,14 @@ let translate (globals, functions) =
       | SAssign (s, e) -> let e' = build_expr builder e in
         ignore (L.build_store e' (lookup s) builder);
         builder
+      | SAssignAt (lst_expr, index_expr, value_expr) ->
+          let lst_val = build_expr builder lst_expr in 
+          let idx_val = build_expr builder index_expr in
+          let value_val = build_expr builder value_expr in 
+          let gep = L.build_in_bounds_gep lst_val [| idx_val |] "index_ptr" builder in
+          ignore (L.build_store value_val gep builder);
+          builder
 
-      | SAssignAt (lst_expr, idx_expr, val_expr) ->
-        let lst_val = build_expr builder lst_expr in
-        let idx_val = build_expr builder idx_expr in
-        let val_val = build_expr builder val_expr in
-        let gep = L.build_in_bounds_gep lst_val [| idx_val |] "index_ptr" builder in
-        ignore (L.build_store val_val gep builder);
-        builder
-      
       | SContinue -> failwith "Continue not currently supported"
       | SBreak -> failwith "Break not implemented"
 
