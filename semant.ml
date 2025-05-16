@@ -21,16 +21,18 @@ let env_pop (env : 'a scoped_env) : 'a scoped_env =
   | [] -> failwith "No scope to pop"
   | _ :: rest -> rest
 
-(* Lookup key in scoped env, searching from top scope downward *)
-let rec env_find (env : 'a scoped_env) (key : string) : 'a option =
+(* Lookup key in the current (innermost) scope only *)
+let env_find (env : 'a scoped_env) (key : string) : 'a option =
   match env with
   | [] -> 
-    prerr_endline ("Variable "^ key ^" not found in any scope");
+    prerr_endline ("Variable " ^ key ^ " not found: no scopes available");
     None
-  | scope :: rest ->
+  | scope :: _ ->
     (match StringMap.find_opt key scope with
-    | Some v -> Some v
-    | None -> env_find rest key)
+     | Some v -> Some v
+     | None ->
+       prerr_endline ("Variable " ^ key ^ " not found in current scope");
+       None)
 
 (* Add binding to top scope *)
 let env_add (env : 'a scoped_env) (key : string) (value : 'a) : 'a scoped_env =

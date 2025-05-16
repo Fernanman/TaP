@@ -19,6 +19,7 @@ and sx =
 type sstmt =
     SBlock of sstmt list
   | SVDecl of typ * string
+  | SFDecl of sfunc_def
   | SExpr of sexpr
   | SIf of sexpr * sstmt
   | SWhile of sexpr * sstmt
@@ -28,7 +29,7 @@ type sstmt =
   | SReturn of sexpr
   | SAssign of string * sexpr
 
-type sfunc_def = {
+and sfunc_def = {
   srtyp: typ;
   sfname: string;
   sformals: bind list;

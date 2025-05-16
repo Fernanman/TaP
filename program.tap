@@ -1,6 +1,6 @@
 integer i.
 i is 10.
 
-fun integer yap().
+fun integer yap(integer i,).
     i is 5.
 end fun.
