@@ -19,13 +19,14 @@ and sx =
 type sstmt =
     SBlock of sstmt list
   | SExpr of sexpr
-  | SIf of sexpr * sstmt
+  | SIf of sexpr * sstmt * sstmt option
   | SWhile of sexpr * sstmt
   | SFor of string * sexpr * sexpr * sstmt
   | SBreak
   | SContinue
   | SReturn of sexpr
   | SAssign of string * sexpr
+  | SAssignAt of sexpr * sexpr * sexpr
 
 type sfunc_def = {
   srtyp: typ;
@@ -35,4 +36,4 @@ type sfunc_def = {
   sbody: sstmt list;
 }
 
-type sprogram = bind list * sstmt list
+type sprogram = bind list * sfunc_def list

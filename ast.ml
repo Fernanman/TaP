@@ -19,13 +19,14 @@ type expr =
 type stmt =
   | Block of stmt list
   | Expr of expr
-  | If of expr * stmt
+  | If of expr * stmt * stmt option
   | While of expr * stmt
   | For of string * expr * expr * stmt
   | Break
   | Continue
   | Return of expr
   | Assign of string * expr
+  | AssignAt of expr * expr * expr
 
 type bind = typ * string
 
@@ -85,19 +86,27 @@ let rec string_of_stmt = function
     Block(stmts) ->
     "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
-  | If(e, s) ->  "if (" ^ string_of_expr e ^ ")\n" ^
-                      string_of_stmt s
+  | If(e, s, s2) ->  "if (" ^ string_of_expr e ^ ")\n" ^
+                      string_of_stmt s ^ (match s2 with | Some stmt -> " else " ^ string_of_stmt stmt | None -> "")
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
   | For(es, ei1, ei2, s) -> "for (" ^ es ^ " in " ^ string_of_expr ei1 ^ " to " ^ string_of_expr ei2 ^ ") " ^ string_of_stmt s
   | Break -> "break"
   | Continue -> "continue"
   | Return(e) -> "return" ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | AssignAt(e1, e2, e3) -> string_of_expr e1 ^ "[" ^ string_of_expr e2 ^ "] = " ^ string_of_expr e3
 
 let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ "\n"
 
-let string_of_program fdecl =
-  "\n\nParsed program: \n\n" ^
+let string_of_fdecl fdecl =
+  string_of_typ fdecl.rtyp ^ " " ^
+  fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
+  ")\n{\n" ^
   String.concat "" (List.map string_of_vdecl fdecl.locals) ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
-  "\n"
+  "}\n"
+
+let string_of_program (vars, funcs) =
+  "\n\nParsed program: \n\n" ^
+  String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
+  String.concat "\n" (List.map string_of_fdecl funcs)

@@ -37,11 +37,14 @@ let translate (globals, functions) =
       in StringMap.add n (L.define_global n init the_module) m in
     List.fold_left global_var StringMap.empty globals in
 
-  (* TODO: Come back and change this to print and support int nums and strings *)
+  (* External built ins *)
   let printf_t : L.lltype =
     L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func : L.llvalue =
     L.declare_function "printf" printf_t the_module in
+  let strlen_func = 
+    L.declare_function "strlen"
+      (L.function_type i32_t [| string_t |]) the_module in
 
   (* Define each function (arguments and return type) so we can
      call it even before we've created its body *)
@@ -60,6 +63,8 @@ let translate (globals, functions) =
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let string_format_str = L.build_global_stringptr "%s\n" "fmt" builder in
+    let num_format_str = L.build_global_stringptr "%.2f\n" "fmt" builder in
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -97,6 +102,34 @@ let translate (globals, functions) =
       | SStringLit s -> L.build_global_stringptr s "str" builder
       | SBoolLit b  -> L.const_int i1_t (if b then 1 else 0)
       | SId s       -> L.build_load (lookup s) s builder
+
+      (* String concatenation *)
+      | SBinop ((t1, s1), A.Add, (t2, s2)) when t1 = A.String && t2 = A.String ->
+        let e1 = (t1, s1) in
+        let e2 = (t2, s2) in 
+        let str1 = build_expr builder e1 in
+        let str2 = build_expr builder e2 in
+
+        let len1 = L.build_call strlen_func [| str1 |] "len1" builder in
+        let len2 = L.build_call strlen_func [| str2 |] "len2" builder in
+        let total_len = L.build_add len1 len2 "total_len" builder in
+        let alloc_size = L.build_add total_len (L.const_int i32_t 1) "alloc_size" builder in
+        let dest = L.build_array_alloca i8_t alloc_size "concat_str" builder in
+
+        let memcpy_func = L.declare_function "llvm.memcpy.p0i8.p0i8.i32"
+          (L.function_type
+            (L.void_type context)
+            [| L.pointer_type i8_t; L.pointer_type i8_t; i32_t; i1_t |])
+          the_module
+        in
+        ignore (L.build_call memcpy_func [| dest; str1; len1; L.const_int i1_t 0 |] "" builder);
+        let dest_offset = L.build_in_bounds_gep dest [| len1 |] "dest_offset" builder in
+        ignore (L.build_call memcpy_func [| dest_offset; str2; len2; L.const_int i1_t 0 |] "" builder);
+        let null_pos = L.build_in_bounds_gep dest [| total_len |] "null_pos" builder in
+        ignore (L.build_store (L.const_int i8_t 0) null_pos builder);
+        dest  (* <-- this is the last expression of this case *)
+
+
       | SBinop (e1, op, e2) ->
         let e1' = build_expr builder e1
         and e2' = build_expr builder e2 in
@@ -115,35 +148,55 @@ let translate (globals, functions) =
          | A.Leq     -> L.build_icmp L.Icmp.Sle
          | A.Less    -> L.build_icmp L.Icmp.Slt
         ) e1' e2' "tmp" builder
+
+
       (* TODO: Call to a print function, come back to later *)
-      | SCall ("print", [e]) ->
+      | SCall ("printint", [e]) ->
         L.build_call printf_func [| int_format_str ; (build_expr builder e) |]
-          "printf" builder
+          "printf_int " builder
+      | SCall ("printstring", [e]) ->
+        L.build_call printf_func [| string_format_str ; (build_expr builder e) |]
+          "printf_str" builder
+      | SCall ("printnum", [e]) ->
+        L.build_call printf_func [| num_format_str ; (build_expr builder e) |]
+          "printf_num" builder
+      | SCall ("strlen", [e]) ->
+        let value = build_expr builder e in
+        L.build_call strlen_func [| value |] "strlen" builder
       | SCall (f, args) ->
         let (fdef, fdecl) = StringMap.find f function_decls in
         let llargs = List.rev (List.map (build_expr builder) (List.rev args)) in
         let result = f ^ "_result" in
         L.build_call fdef (Array.of_list llargs) result builder
+
+
       (* Builder for list expression *)
       | SListLit elems ->
         let ll_elems = List.map (build_expr builder) elems in
-        let element_type =
-          match elems with
-          | (t, _)::_ -> ltype_of_typ t
-          (* TODO: Handle empty lists *)
-          | [] -> failwith "Cannot infer type of empty list"
-        in
-        (* let array_type = L.array_type element_type (List.length ll_elems) in *)
-        let arr = L.const_array element_type (Array.of_list ll_elems) in
-        (* Question: Can only have one for now? *)
-        let global = L.define_global "listlit" arr the_module in
-        L.const_bitcast global (L.pointer_type element_type)
-      (* For indexing expressions *)
-      | SAt (lst_expr, index_expr) ->
-        let lst_val = build_expr builder lst_expr in
+          let arr = L.const_array i32_t (Array.of_list ll_elems) in
+            let global = L.define_global "listlit" arr the_module in
+            L.build_in_bounds_gep global [| L.const_int i32_t 0; L.const_int i32_t 0 |] "list_ptr" builder
+  
+      (* For indexing strings *)
+      | SAt ((A.String, _) as lst_expr, index_expr) ->
+        let str_val = build_expr builder lst_expr in
         let idx_val = build_expr builder index_expr in
-        (* Same thing wondering about the use of "at" here *)
-        let gep = L.build_in_bounds_gep lst_val [| L.const_int i32_t 0; idx_val |] "at" builder in
+        let gep = L.build_in_bounds_gep str_val [| idx_val |] "str_index" builder in
+        let char_val = L.build_load gep "char" builder in
+
+        (* Allocate space for a 2-character string: 1 char + null terminator *)
+        let char_str = L.build_array_alloca i8_t (L.const_int i32_t 2) "char_str" builder in
+        let c0 = L.build_in_bounds_gep char_str [| L.const_int i32_t 0 |] "c0" builder in
+        ignore (L.build_store char_val c0 builder);
+        let c1 = L.build_in_bounds_gep char_str [| L.const_int i32_t 1 |] "c1" builder in
+        ignore (L.build_store (L.const_int i8_t 0) c1 builder);
+
+        char_str
+      (* For indexing lists *)
+      | SAt (lst_expr, index_expr) ->
+        let lst_val = build_expr builder lst_expr in  (* i32* *)
+        let idx_val = build_expr builder index_expr in  (* i32 *)
+        let gep = L.build_in_bounds_gep lst_val [| idx_val |] "at" builder in
         L.build_load gep "load_elem" builder
       | SAs (sexp, t) -> failwith "Type casting not currently supported"
       | SContains (sexp1, sexp2) -> failwith "Contains not implemented"
@@ -162,80 +215,123 @@ let translate (globals, functions) =
     (* Build the code for the given statement; return the builder for
        the statement's successor (i.e., the next instruction will be built
        after the one generated by this call) *)
+    
+    let loop_stack = ref [] in
     let rec build_stmt builder = function
         SBlock sl -> List.fold_left build_stmt builder sl
       | SExpr e -> ignore(build_expr builder e); builder
       | SReturn e -> ignore(L.build_ret (build_expr builder e) builder); builder
-      | SIf (predicate, then_stmt) ->
+      | SIf (predicate, then_stmt, else_opt) ->
         let bool_val = build_expr builder predicate in
-
+        
         let then_bb = L.append_block context "then" the_function in
-        (* ignore (build_stmt (L.builder_at_end context then_bb) then_stmt); *)
+        let else_bb = L.append_block context "else" the_function in
         let end_bb = L.append_block context "if_end" the_function in
         
-         (* Create builder for "then" block and generate code *)
+        ignore (L.build_cond_br bool_val then_bb else_bb builder);
+        
         let then_builder = build_stmt (L.builder_at_end context then_bb) then_stmt in
         add_terminal then_builder (L.build_br end_bb);
+        
+        let _ = match else_opt with
+          | Some else_stmt ->
+              let b = build_stmt (L.builder_at_end context else_bb) else_stmt in
+              add_terminal b (L.build_br end_bb);
+              b
+          | None ->
+              let b = L.builder_at_end context else_bb in
+              add_terminal b (L.build_br end_bb);
+              b
+        in
 
-        (* Build the conditional branch *)
-        ignore (L.build_cond_br bool_val then_bb end_bb builder);
-
-    (* Continue at the end block *)
     L.builder_at_end context end_bb
+
+      
       | SWhile (predicate, body) ->
         let while_bb = L.append_block context "while" the_function in
-        let build_br_while = L.build_br while_bb in (* partial function *)
+        let build_br_while = L.build_br while_bb in
         ignore (build_br_while builder);
+        
         let while_builder = L.builder_at_end context while_bb in
         let bool_val = build_expr while_builder predicate in
-
+        
         let body_bb = L.append_block context "while_body" the_function in
-        add_terminal (build_stmt (L.builder_at_end context body_bb) body) build_br_while;
-
         let end_bb = L.append_block context "while_end" the_function in
-
+        
+        loop_stack := (while_bb, end_bb) :: !loop_stack;
+        
+        let body_builder = build_stmt (L.builder_at_end context body_bb) body in
+        add_terminal body_builder build_br_while;
+        
+        loop_stack := List.tl !loop_stack;
+        
         ignore(L.build_cond_br bool_val body_bb end_bb while_builder);
         L.builder_at_end context end_bb
-      (* For loop implementation *)
-      | SFor (var, start_expr, end_expr, body) ->
-        (* Allocate and initialize loop variable *)
+
+    | SFor (var, start_expr, end_expr, body) ->
         let var_alloca = L.build_alloca i32_t var builder in
         let start_val = build_expr builder start_expr in
         ignore (L.build_store start_val var_alloca builder);
 
-        (* Create the loop blocks *)
         let loop_cond_bb = L.append_block context "for_cond" the_function in
-        ignore (L.build_br loop_cond_bb builder);  (* jump into condition check *)
+        ignore (L.build_br loop_cond_bb builder);
+        
         let cond_builder = L.builder_at_end context loop_cond_bb in
-
-        (* Load current loop var and evaluate condition *)
         let curr_val = L.build_load var_alloca var cond_builder in
         let end_val = build_expr cond_builder end_expr in
         let cond = L.build_icmp L.Icmp.Slt curr_val end_val "for_cond" cond_builder in
 
-        (* Create blocks for loop body and after loop *)
         let loop_body_bb = L.append_block context "for_body" the_function in
         let after_loop_bb = L.append_block context "for_end" the_function in
-        ignore (L.build_cond_br cond loop_body_bb after_loop_bb cond_builder);
+        
+        loop_stack := (loop_cond_bb, after_loop_bb) :: !loop_stack;
+        
+        ignore(L.build_cond_br cond loop_body_bb after_loop_bb cond_builder);
 
-        (* Inside loop body *)
-        let body_builder = build_stmt (L.builder_at_end context loop_body_bb) body in
+        let body_builder = L.builder_at_end context loop_body_bb in
+        let loop_var_val = L.build_load var_alloca var body_builder in
+        ignore (L.build_store loop_var_val (lookup var) body_builder);
 
-        (* Increment loop variable *)
+        let body_builder = build_stmt body_builder body in
+
+        loop_stack := List.tl !loop_stack;
+
         let curr_val' = L.build_load var_alloca var body_builder in
         let next_val = L.build_add curr_val' (L.const_int i32_t 1) "for_inc" body_builder in
         ignore (L.build_store next_val var_alloca body_builder);
 
-        (* Jump back to loop condition *)
         ignore (L.build_br loop_cond_bb body_builder);
-
-        (* Continue building after loop *)
         L.builder_at_end context after_loop_bb
+
       | SAssign (s, e) -> let e' = build_expr builder e in
         ignore (L.build_store e' (lookup s) builder);
         builder
-      | SContinue -> failwith "Continue not currently supported"
-      | SBreak -> failwith "Break not implemented"
+
+      | SAssignAt (lst_expr, index_expr, value_expr) ->
+          let lst_val = build_expr builder lst_expr in 
+          let idx_val = build_expr builder index_expr in
+          let value_val = build_expr builder value_expr in 
+          let gep = L.build_in_bounds_gep lst_val [| idx_val |] "index_ptr" builder in
+          ignore (L.build_store value_val gep builder);
+          builder
+
+      | SBreak ->
+        (match !loop_stack with 
+        | (_, break_bb) :: _ ->
+            (* Terminate current block *)
+            ignore (L.build_br break_bb builder);
+            (* Create new unreachable block for any following code *)
+            let unreachable_bb = L.append_block context "unreachable" the_function in
+            L.builder_at_end context unreachable_bb
+        | [] -> raise (Failure "break outside loop"))
+
+    | SContinue ->
+        (match !loop_stack with 
+        | (continue_bb, _) :: _ ->
+            ignore (L.build_br continue_bb builder);
+            let unreachable_bb = L.append_block context "unreachable" the_function in
+            L.builder_at_end context unreachable_bb
+        | [] -> raise (Failure "continue outside loop"))
 
     in
     (* Build the code for each statement in the function *)
