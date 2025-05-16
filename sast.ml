@@ -18,6 +18,7 @@ and sx =
 
 type sstmt =
     SBlock of sstmt list
+  | SVDecl of typ * string
   | SExpr of sexpr
   | SIf of sexpr * sstmt
   | SWhile of sexpr * sstmt
@@ -31,7 +32,6 @@ type sfunc_def = {
   srtyp: typ;
   sfname: string;
   sformals: bind list;
-  slocals: bind list;
   sbody: sstmt list;
 }
 
