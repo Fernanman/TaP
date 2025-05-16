@@ -75,13 +75,17 @@ stmt_list_rule:
 stmt_rule:
   expr_rule NL { Expr $1 }
   | IDENTIFIER ASSIGN expr_rule NL  { Assign ($1, $3) }
-  | IF expr_rule NL stmt_list_rule END IF NL                                  { If ($2, Block $4)     }
+  | expr_rule AT expr_rule ASSIGN expr_rule NL { AssignAt ($1, $3, $5) }
+  | IF expr_rule NL stmt_list_rule else_part END IF NL { If ($2, Block $4, $5) }
   | WHILE expr_rule NL stmt_list_rule END WHILE NL                      { While ($2, Block $4)  }
   | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR NL { For ($2, $4, $6, Block $9) }
   | BREAK NL                                                      { Break }
   | CONT NL                                                          { Continue }
   | RETURN expr_rule NL              { Return $2 }
-  
+
+else_part:
+  | /* nothing */       { None }
+  | ELSE NL stmt_list_rule { Some (Block $3) }
 
 optional_step:
     /* nothing */ { None }
