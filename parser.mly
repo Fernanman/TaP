@@ -49,7 +49,11 @@ param_list:
   | typ_rule IDENTIFIER COMMA param_list { ($1, $2) :: $4 }
 
 vdecl_rule:
-  typ_rule IDENTIFIER { VDecl($1, $2) }
+  typ_rule IDENTIFIER optional_assign { ($1, $2, $3) }
+
+optional_assign:
+  /* nothing */       { None }
+  | ASSIGN expr_rule  { Some $2 }
 
 bind_rule:
   typ_rule IDENTIFIER { ($1, $2) }
@@ -75,7 +79,12 @@ fdecl_rule:
 stmt_list_rule:
     /* nothing */               { []     }
     | stmt_rule stmt_list_rule  { $1::$2 }
-    | vdecl_rule NL stmt_list_rule  { $1::$3 }
+    | vdecl_rule NL stmt_list_rule  {
+      let (t, id, init_opt) = $1 in
+        match init_opt with
+        | Some e -> [VDecl(t, id); Assign(id, e)]@$3
+        | None -> VDecl(t, id)::$3
+     }
 
 stmt_rule:
   expr_rule NL { Expr $1 }
