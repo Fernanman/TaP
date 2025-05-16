@@ -1,8 +1,15 @@
 fun integer main().
-integer value.
-printint(add_four(5)).
+integer s.
+s is userFunc1(3).
+printint(s).
+
+printint(userFunc2(3, 5)).
 end fun.
 
-fun integer add_four(input,).
-return input + 4.
+fun integer userFunc1(integer input).
+return input + 5.
+end fun.
+
+fun integer userFunc2(integer input1, integer input2).
+return input1 + input2.
 end fun.
