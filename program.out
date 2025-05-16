@@ -3,7 +3,7 @@ source_filename = "TaP"
 
 @fmt = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 @fmt.1 = private unnamed_addr constant [4 x i8] c"%s\0A\00", align 1
-@str = private unnamed_addr constant [6 x i8] c"hello\00", align 1
+@fmt.2 = private unnamed_addr constant [6 x i8] c"%.2f\0A\00", align 1
 
 declare i32 @printf(i8*, ...)
 
@@ -11,22 +11,25 @@ declare i32 @strlen(i8*)
 
 define i32 @main() {
 entry:
-  %i = alloca i32, align 4
-  store i32 2, i32* %i, align 4
-  br label %while
-
-while:                                            ; preds = %while_body, %entry
-  %i1 = load i32, i32* %i, align 4
-  %tmp = icmp sge i32 %i1, 0
-  br i1 %tmp, label %while_body, label %while_end
-
-while_body:                                       ; preds = %while
-  %printf_str = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt.1, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @str, i32 0, i32 0))
-  %i2 = load i32, i32* %i, align 4
-  %tmp3 = sub i32 %i2, 1
-  store i32 %tmp3, i32* %i, align 4
-  br label %while
-
-while_end:                                        ; preds = %while
+  %i = alloca i32*, align 8
+  %b = alloca i8*, align 8
+  %list_alloc = alloca i32, i32 6, align 4
+  %len_ptr = getelementptr inbounds i32, i32* %list_alloc, i32 0
+  store i32 5, i32* %len_ptr, align 4
+  %elem_ptr = getelementptr inbounds i32, i32* %list_alloc, i32 1
+  store i32 125, i32* %elem_ptr, align 4
+  %elem_ptr1 = getelementptr inbounds i32, i32* %list_alloc, i32 2
+  store i32 24516, i32* %elem_ptr1, align 4
+  %elem_ptr2 = getelementptr inbounds i32, i32* %list_alloc, i32 3
+  store i32 2415, i32* %elem_ptr2, align 4
+  %elem_ptr3 = getelementptr inbounds i32, i32* %list_alloc, i32 4
+  store i32 151, i32* %elem_ptr3, align 4
+  %elem_ptr4 = getelementptr inbounds i32, i32* %list_alloc, i32 5
+  store i32 6126, i32* %elem_ptr4, align 4
+  store i32* %list_alloc, i32** %i, align 8
+  %i5 = load i32*, i32** %i, align 8
+  %len_ptr6 = getelementptr inbounds i32, i32* %i5, i32 0
+  %list_length = load i32, i32* %len_ptr6, align 4
+  %"printf_int " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt, i32 0, i32 0), i32 %list_length)
   ret i32 0
 }

@@ -1,9 +1,10 @@
 fun integer main(). 
-integer i.
-i is 2.
+list integer i.
+string b.
 
-while i geq 0.
-printstring('hello').
-i is i minus 1.
-end while.
+i is (125,24516,2415,151,6126,).
+
+printint(listlen(i)).
+
+
 end fun. 

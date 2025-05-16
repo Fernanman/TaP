@@ -163,6 +163,11 @@ let translate (globals, functions) =
       | SCall ("strlen", [e]) ->
         let value = build_expr builder e in
         L.build_call strlen_func [| value |] "strlen" builder
+      (* Not properly a call, but basically acts like one. *)
+      | SListLen lst_expr ->
+        let lst_val = build_expr builder lst_expr in
+        let len_ptr = L.build_in_bounds_gep lst_val [| L.const_int i32_t 0 |] "len_ptr" builder in
+        L.build_load len_ptr "list_length" builder
       | SCall (f, args) ->
         let (fdef, fdecl) = StringMap.find f function_decls in
         let llargs = List.rev (List.map (build_expr builder) (List.rev args)) in
@@ -173,10 +178,21 @@ let translate (globals, functions) =
       (* Builder for list expression *)
       | SListLit elems ->
         let ll_elems = List.map (build_expr builder) elems in
-          let arr = L.const_array i32_t (Array.of_list ll_elems) in
-            let global = L.define_global "listlit" arr the_module in
-            L.build_in_bounds_gep global [| L.const_int i32_t 0; L.const_int i32_t 0 |] "list_ptr" builder
-  
+        let list_len = List.length ll_elems in
+        let total_len = list_len + 1 in (* Include space for length at index 0 *)
+        let alloc = L.build_array_alloca i32_t (L.const_int i32_t total_len) "list_alloc" builder in
+
+        (* Store the length at index 0 *)
+        let len_ptr = L.build_in_bounds_gep alloc [| L.const_int i32_t 0 |] "len_ptr" builder in
+        ignore (L.build_store (L.const_int i32_t list_len) len_ptr builder);
+
+        (* Store elements at index 1 onwards *)
+        List.iteri (fun i ll_elem ->
+          let ptr = L.build_in_bounds_gep alloc [| L.const_int i32_t (i + 1) |] "elem_ptr" builder in
+          ignore (L.build_store ll_elem ptr builder)
+        ) ll_elems;
+
+        alloc
       (* For indexing strings *)
       | SAt ((A.String, _) as lst_expr, index_expr) ->
         let str_val = build_expr builder lst_expr in
@@ -194,9 +210,10 @@ let translate (globals, functions) =
         char_str
       (* For indexing lists *)
       | SAt (lst_expr, index_expr) ->
-        let lst_val = build_expr builder lst_expr in  (* i32* *)
-        let idx_val = build_expr builder index_expr in  (* i32 *)
-        let gep = L.build_in_bounds_gep lst_val [| idx_val |] "at" builder in
+        let lst_val = build_expr builder lst_expr in
+        let idx_val = build_expr builder index_expr in
+        let adjusted_idx = L.build_add idx_val (L.const_int i32_t 1) "adjusted_idx" builder in
+        let gep = L.build_in_bounds_gep lst_val [| adjusted_idx |] "at" builder in
         L.build_load gep "load_elem" builder
       | SAs (sexp, t) -> failwith "Type casting not currently supported"
       | SContains (sexp1, sexp2) -> failwith "Contains not implemented"
@@ -308,12 +325,13 @@ let translate (globals, functions) =
         builder
 
       | SAssignAt (lst_expr, index_expr, value_expr) ->
-          let lst_val = build_expr builder lst_expr in 
-          let idx_val = build_expr builder index_expr in
-          let value_val = build_expr builder value_expr in 
-          let gep = L.build_in_bounds_gep lst_val [| idx_val |] "index_ptr" builder in
-          ignore (L.build_store value_val gep builder);
-          builder
+  let lst_val = build_expr builder lst_expr in 
+  let idx_val = build_expr builder index_expr in
+  let adjusted_idx = L.build_add idx_val (L.const_int i32_t 1) "adjusted_idx" builder in
+  let value_val = build_expr builder value_expr in 
+  let gep = L.build_in_bounds_gep lst_val [| adjusted_idx |] "index_ptr" builder in
+  ignore (L.build_store value_val gep builder);
+  builder
 
       | SBreak ->
         (match !loop_stack with 

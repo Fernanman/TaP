@@ -43,6 +43,12 @@ let check (globals, functions) =
       fname = "printnum";
       formals = [(Num, "x")];
       locals = []; body = [] }
+    |> StringMap.add "strlen" {
+      rtyp = Int;
+      fname = "strlen";
+      formals = [(String, "x")];
+      locals = []; body = [] 
+      }
 
   in
 
@@ -117,6 +123,13 @@ let check (globals, functions) =
             else (ty, se)) l in
           (List head_ty, SListLit lst_elems)
       )
+
+      | ListLen l -> 
+        let (t, e') = check_expr l in
+          (match t with
+          List (_) -> (Int, SListLen (t, e') )
+          | _ -> raise (Failure ("listlen must be supplied with a list."))
+          )
 
       | Id var -> (type_of_identifier var, SId var)
 

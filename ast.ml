@@ -15,6 +15,7 @@ type expr =
   | ListLit of expr list
   | Call of string * expr list
   | Contains of expr * expr
+  | ListLen of expr
 
 type stmt =
   | Block of stmt list
@@ -81,6 +82,7 @@ let rec string_of_expr = function
   | Call (fname, args) -> fname ^ "(" ^ String.concat ", " (List.map string_of_expr args) ^ ")"
   | ListLit es -> "[" ^ String.concat ", " (List.map string_of_expr es) ^ "]\n"
   | Contains (e1, e2) -> string_of_expr e1 ^ " in " ^ string_of_expr e2
+  | ListLen (e) -> "Listlen"
 
 let rec string_of_stmt = function
     Block(stmts) ->

@@ -15,6 +15,7 @@ and sx =
   | SListLit of sexpr list
   | SCall of string * sexpr list
   | SContains of sexpr * sexpr
+  | SListLen of sexpr
 
 type sstmt =
     SBlock of sstmt list

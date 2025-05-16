@@ -6,11 +6,11 @@ open Ast
 %}
 
 
-%token LPAREN RPAREN PLUS MINUS TIMES DIVIDE MOD ASSIGN NL
+%token LPAREN RPAREN PLUS MINUS LISTLEN TIMES DIVIDE MOD ASSIGN NL
 %token EQ NEQ LT AND OR NOT GT LEQ GEQ
 %token IF ELSE WHILE FUN END FOR 
 %token RETURN COMMA BREAK CONT STEP NULL IN AS TO AT
-%token STRING BOOLEAN MAP SET LIST NUMBER INTEGER
+%token STRING BOOLEAN LIST NUMBER INTEGER
 %token <int> INT_LIT
 %token <bool> BOOL_LIT
 %token <float> NUM_LIT
@@ -124,6 +124,7 @@ expr_rule:
   | expr_rule GT expr_rule        { Binop ($1, Greater, $3) }
   | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
+  | LISTLEN LPAREN expr_rule RPAREN { ListLen ($3) }
   | IDENTIFIER LPAREN args_opt RPAREN {   Call ($1, $3) }
   | expr_rule AT expr_rule { At ($1, $3) } /* expr needs to be IntLit */
   | expr_rule IN expr_rule { Contains ($1, $3) } /* membership check */

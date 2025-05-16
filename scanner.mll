@@ -16,7 +16,7 @@ let line_terminator = '.' (whitespace | eof)
 (* Do not have comments as of now *)
 rule token = parse
   whitespace { token lexbuf } (* Whitespace *)
-| line_terminator  { print_endline "NL" ; NL }
+| line_terminator  { NL }
 | '('      { LPAREN }
 | ')'      { RPAREN }
 | ','      { COMMA }
@@ -73,10 +73,9 @@ rule token = parse
     | "as" -> AS
     | "string" -> STRING
     | "boolean" -> BOOLEAN
-    | "map" -> MAP
-    | "set" -> SET
     | "number" -> NUMBER
     | "integer" -> INTEGER
+    | "listlen" -> LISTLEN
     (* | "int" -> INTEGER *)
     | "to" -> TO
     | _ -> IDENTIFIER(standard_id) 
