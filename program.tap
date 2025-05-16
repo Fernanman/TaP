@@ -2,10 +2,14 @@ fun integer main().
 integer i.
 
 
+
 for i in 0 to 5.
-printint(2).
+integer j.
+j is 2.
+printint(j).
 cont.
 printint(1).
+
 end for.
 
 

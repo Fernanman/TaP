@@ -18,6 +18,7 @@ type expr =
 
 type stmt =
   | Block of stmt list
+  | VDecl of typ * string
   | Expr of expr
   | If of expr * stmt * stmt option
   | While of expr * stmt
@@ -35,7 +36,6 @@ type func_def = {
   rtyp: typ;
   fname: string;
   formals: bind list;
-  locals: bind list;
   body: stmt list;
 }
 
@@ -83,8 +83,9 @@ let rec string_of_expr = function
   | Contains (e1, e2) -> string_of_expr e1 ^ " in " ^ string_of_expr e2
 
 let rec string_of_stmt = function
-    Block(stmts) ->
+  | Block(stmts) ->
     "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
+  | VDecl(t, name) -> string_of_typ t ^ " " ^ name ^ ";\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
   | If(e, s, s2) ->  "if (" ^ string_of_expr e ^ ")\n" ^
                       string_of_stmt s ^ (match s2 with | Some stmt -> " else " ^ string_of_stmt stmt | None -> "")
@@ -102,11 +103,9 @@ let string_of_fdecl fdecl =
   string_of_typ fdecl.rtyp ^ " " ^
   fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
   ")\n{\n" ^
-  String.concat "" (List.map string_of_vdecl fdecl.locals) ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
 
 let string_of_program (vars, funcs) =
   "\n\nParsed program: \n\n" ^
-  String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
   String.concat "\n" (List.map string_of_fdecl funcs)

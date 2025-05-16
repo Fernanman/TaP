@@ -32,17 +32,17 @@ let check (globals, functions) =
       rtyp = Int;
       fname = "printint";
       formals = [(Int, "x")];
-      locals = []; body = [] }
+      body = [] }
     |> StringMap.add "printstring" {
       rtyp = Int;
       fname = "printstr";
       formals = [(String, "x")];
-      locals = []; body = [] }
+      body = [] }
     |> StringMap.add "printnum" {
       rtyp = Int;
       fname = "printnum";
       formals = [(Num, "x")];
-      locals = []; body = [] }
+      body = [] }
 
   in
 
@@ -73,7 +73,15 @@ let check (globals, functions) =
   let rec check_func func =
     (* Make sure no formals or locals are void or duplicates *)
     check_binds "formal" func.formals;
-    check_binds "local" func.locals;
+    let rec extract_vdecls = function
+      | [] -> []
+      | VDecl(t, n) :: rest -> (t, n) :: extract_vdecls rest
+      | Block(sl) :: rest -> extract_vdecls (sl @ rest)
+      | _ :: rest -> extract_vdecls rest
+    in
+
+    let locals_from_body = extract_vdecls func.body in
+    check_binds "local" locals_from_body;
 
     (* Raise an exception if the given rvalue type cannot be assigned to
        the given lvalue type *)
@@ -83,7 +91,7 @@ let check (globals, functions) =
 
     (* Build local symbol table of variables for this function *)
     let symbols = List.fold_left (fun m (ty, name) -> StringMap.add name ty m)
-        StringMap.empty (globals @ func.formals @ func.locals )
+        StringMap.empty (globals @ func.formals @ locals_from_body )
     in
 
     (* Return a variable from our local symbol table *)
@@ -198,6 +206,7 @@ let check (globals, functions) =
       (* A block is correct if each statement is correct and nothing
          follows any Return statement.  Nested blocks are flattened. *)
         Block sl -> SBlock (check_stmt_list sl)
+      | VDecl(t, name) -> SVDecl(t, name)
       | Expr e -> SExpr (check_expr e)
       | If(e, st, sto) ->
           let s_else = match sto with
@@ -249,7 +258,6 @@ let check (globals, functions) =
     { srtyp = func.rtyp;
       sfname = func.fname;
       sformals = func.formals;
-      slocals  = func.locals;
       sbody = check_stmt_list func.body
     }
   in
