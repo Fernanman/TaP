@@ -1,8 +1,4 @@
-fun number hi(number x).
-list x.
-integer i.
-x is (1, 2, 3,).
-while i in x.
-break.
-end while.
-end fun.
+fun integer main(). 
+printstring('hello' + ' ' + 'world').
+
+end fun. 

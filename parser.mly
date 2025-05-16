@@ -70,17 +70,22 @@ fdecl_rule:
 
 stmt_list_rule:
     /* nothing */               { []     }
-    | stmt_rule NL stmt_list_rule  { $1::$3 }
+    | stmt_rule stmt_list_rule  { $1::$2 }
 
 stmt_rule:
-  | IDENTIFIER ASSIGN expr_rule   { Assign ($1, $3) }
-  | IF expr_rule NL stmt_list_rule END IF                                    { If ($2, Block $4)     }
-  | WHILE expr_rule NL stmt_list_rule END WHILE                              { While ($2, Block $4)  }
-  | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR  { For ($2, $4, $6, Block $9)}
-  | BREAK                                                                    { Break }
-  | CONT                                                              { Continue }
-  | RETURN expr_rule                       { Return $2 }
-  
+  expr_rule NL { Expr $1 }
+  | IDENTIFIER ASSIGN expr_rule NL  { Assign ($1, $3) }
+  | expr_rule AT expr_rule ASSIGN expr_rule NL { AssignAt ($1, $3, $5) }
+  | IF expr_rule NL stmt_list_rule else_part END IF NL { If ($2, Block $4, $5) }
+  | WHILE expr_rule NL stmt_list_rule END WHILE NL                      { While ($2, Block $4)  }
+  | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR NL { For ($2, $4, $6, Block $9) }
+  | BREAK NL                                                      { Break }
+  | CONT NL                                                          { Continue }
+  | RETURN expr_rule NL              { Return $2 }
+
+else_part:
+  | /* nothing */       { None }
+  | ELSE NL stmt_list_rule { Some (Block $3) }
 
 optional_step:
     /* nothing */ { None }
@@ -91,8 +96,11 @@ param_list:
   | typ_rule IDENTIFIER { [($1, $2)] }
   | typ_rule IDENTIFIER COMMA param_list { ($1, $2) :: $4 }
 
+args_opt:
+  /*nothing*/ { [] }
+  | expr_list { $1 }
+
 expr_list:
-    /* nothing */              { [] }
   | expr_rule                  { [$1] }
   | expr_rule COMMA expr_list { $1 :: $3 }
 
@@ -100,7 +108,7 @@ expr_rule:
   | BOOL_LIT                      { BoolLit $1              }
   | INT_LIT                       { IntLit $1               }
   | NUM_LIT                       { NumLit $1               }
-  | STRING_LIT                     { StringLit $1            }
+  | STRING_LIT                    { StringLit $1            }
   | IDENTIFIER                    { Id $1                   }
   | expr_rule AS typ_rule         { As ($1, $3)             }
   | expr_rule PLUS expr_rule      { Binop ($1, Add, $3)     }
@@ -116,7 +124,7 @@ expr_rule:
   | expr_rule GT expr_rule        { Binop ($1, Greater, $3) }
   | expr_rule AND expr_rule       { Binop ($1, And, $3)     }
   | expr_rule OR expr_rule        { Binop ($1, Or, $3)      }
-  | IDENTIFIER LPAREN expr_list RPAREN { Call ($1, $3) }
+  | IDENTIFIER LPAREN args_opt RPAREN {   Call ($1, $3) }
   | expr_rule AT expr_rule { At ($1, $3) } /* expr needs to be IntLit */
   | expr_rule IN expr_rule { Contains ($1, $3) } /* membership check */
   | list_literal { $1 }

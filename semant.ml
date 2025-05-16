@@ -27,11 +27,23 @@ let check (globals, functions) =
 
   (* Collect function declarations for built-in functions: no bodies *)
   let built_in_decls =
-    StringMap.add "print" {
-      rtyp = Num;  (* Let's assume "print" prints numbers *)
-      fname = "print";
+    StringMap.empty
+    |> StringMap.add "printint" {
+      rtyp = Int;
+      fname = "printint";
+      formals = [(Int, "x")];
+      locals = []; body = [] }
+    |> StringMap.add "printstring" {
+      rtyp = Int;
+      fname = "printstr";
+      formals = [(String, "x")];
+      locals = []; body = [] }
+    |> StringMap.add "printnum" {
+      rtyp = Int;
+      fname = "printnum";
       formals = [(Num, "x")];
-      locals = []; body = [] } StringMap.empty
+      locals = []; body = [] }
+
   in
 
   (* Add function name to symbol table *)
@@ -94,6 +106,7 @@ let check (globals, functions) =
       | NumLit l -> (Num, SNumLit l)
       | StringLit l -> (String, SStringLit l)
 
+      (* List definition *)
       | ListLit l -> (match l with
         | [] -> (List Null, SListLit [])
         | hd :: _ -> let (head_ty, _) = check_expr hd in
@@ -107,11 +120,13 @@ let check (globals, functions) =
 
       | Id var -> (type_of_identifier var, SId var)
 
+      (* As checking *)
       | As(e1, etype) -> 
           let (et, e') = check_expr e1 in
           if compatible et etype then (etype, SAs((et, e'), etype))
           else raise (Failure ("type mismatch in 'as' operation. type " ^ string_of_typ et ^ " incompatible with  type " ^ string_of_typ etype))
-
+        
+      (* At for indexing *)
       | At(e1, e2) -> 
           let (et1, e1') = check_expr e1
           and (et2, e2') = check_expr e2 in
@@ -122,6 +137,7 @@ let check (globals, functions) =
           | String -> (String, SAt ((et1, e1'), (et2, e2')))
           | _ -> raise (Failure ("type " ^ string_of_typ et1 ^ " not subscriptable")))
       
+      (* Contains for checking if a list has an element *)
       | Contains (elem_expr, list_expr) ->
         let (elem_ty, se_elem) = check_expr elem_expr in
         let (list_ty, se_list) = check_expr list_expr in
@@ -129,6 +145,7 @@ let check (globals, functions) =
         | List t -> (Bool, SContains ((elem_ty, se_elem), (list_ty, se_list)))
         | _ -> raise (Failure ("invalid 'in' operation: expected type list, got " ^ string_of_typ list_ty)))
 
+      (* Adding binary operations *)
       | Binop(e1, op, e2) as e ->
         let (t1, e1') = check_expr e1
         and (t2, e2') = check_expr e2 in
@@ -140,6 +157,7 @@ let check (globals, functions) =
           let t = match op with
               Add | Sub | Mult | Div | Mod when (t1 = Int && t2 = Int) -> Int
             | Add | Sub | Mult | Div when (t1 = Num || t2 = Num) -> Num
+            | Add when (t1 = String && t2 = String) -> String
             | Equal | Neq -> Bool
             | Less | Greater | Geq | Leq when (t1 = Int || t1 = Num) -> Bool
             | And | Or when t1 = Bool -> Bool
@@ -181,7 +199,12 @@ let check (globals, functions) =
          follows any Return statement.  Nested blocks are flattened. *)
         Block sl -> SBlock (check_stmt_list sl)
       | Expr e -> SExpr (check_expr e)
-      | If(e, st) -> SIf(check_bool_expr e, check_stmt st)
+      | If(e, st, sto) ->
+          let s_else = match sto with
+            | Some stmt -> Some (check_stmt stmt)
+            | None -> None
+          in SIf(check_bool_expr e, check_stmt st, s_else)
+  
       | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
 
       | Assign(var, e) ->
@@ -191,6 +214,19 @@ let check (globals, functions) =
           ("illegal assignment: " ^ string_of_typ expr_typ ^ " -> " ^ string_of_typ var_typ)
         in
         SAssign(var, (expr_typ, se))
+      
+      | AssignAt(e_lst, e_idx, e_val) ->
+        let (lst_typ, lst_sx) = check_expr e_lst in
+        let (idx_typ, idx_sx) = check_expr e_idx in
+        let (val_typ, val_sx) = check_expr e_val in
+        (match lst_typ with
+          | List(elem_typ) ->
+            let err = "cannot assign value of type " ^ string_of_typ val_typ ^
+                    " to list element of type " ^ string_of_typ elem_typ in
+          ignore (check_assign elem_typ val_typ err);
+          if not (idx_typ = Int) then raise (Failure ("list index must be Int, got " ^ string_of_typ idx_typ))
+          else SAssignAt ((lst_typ, lst_sx), (idx_typ, idx_sx), (val_typ, val_sx))
+          | _ -> raise (Failure ("cannot index-assign to non-list type " ^ string_of_typ lst_typ)))
 
       | For(id, start_e, end_e, st) ->
         let (start_ty, start_e') = check_expr start_e in
