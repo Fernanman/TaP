@@ -24,5 +24,6 @@ let () =
   | _ -> let sast = Semant.check ast in
     match !action with
       Ast     -> ()
-    | Sast    -> print_string (Sast.string_of_sprogram sast)
-    | LLVM_IR -> () (* print_string (Llvm.string_of_llmodule (Irgen.translate sast)) *)
+    (* | Sast    -> print_string (Sast.string_of_sprogram sast) *)
+    | Sast -> print_endline "AAST output not implemented yet"
+    | LLVM_IR -> print_string (Llvm.string_of_llmodule (Irgen.translate sast))
