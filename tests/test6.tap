@@ -1,0 +1,10 @@
+fun integer main().
+integer i.
+for i in 0 to 10.
+if i gt 5.
+break.
+end if.
+printint(i).
+end for.
+
+end fun.

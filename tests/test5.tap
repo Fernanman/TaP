@@ -1,0 +1,13 @@
+fun integer main().
+integer i is 1.
+if i gt 0.
+printint(i).
+else. printint(i + 1).
+end if.
+
+if i lt 0.
+printint(i).
+else. printint(i-2).
+end if.
+
+end fun.
