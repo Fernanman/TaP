@@ -1,0 +1,4 @@
+fun integer main(). 
+printstring('hello' + ' ' + 'world').
+
+end fun.
