@@ -1,6 +1,9 @@
 fun integer main(). 
-integer i.
-i is 2.
+string i.
+i is 'hello' + ' ' + 'world'.
+
+printstring(i).
+printint(strlen(i)).
 
 while i geq 0.
 printstring('hello').

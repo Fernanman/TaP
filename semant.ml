@@ -32,12 +32,22 @@ let check (globals, functions) =
       rtyp = Int;
       fname = "printint";
       formals = [(Int, "x")];
-      locals = []; body = [] }
+      body = [] }
     |> StringMap.add "printstring" {
       rtyp = Int;
       fname = "printstr";
       formals = [(String, "x")];
-      locals = []; body = [] }
+      body = [] }
+    |> StringMap.add "printnum" {
+      rtyp = Int;
+      fname = "printnum";
+      formals = [(Num, "x")];
+      body = [] }
+    |> StringMap.add "strlen" {
+      rtyp = Int;
+      fname = "strlen";
+      formals = [(String, "x")];
+      body = [] }
 
   in
 
@@ -68,7 +78,15 @@ let check (globals, functions) =
   let rec check_func func =
     (* Make sure no formals or locals are void or duplicates *)
     check_binds "formal" func.formals;
-    check_binds "local" func.locals;
+    let rec extract_vdecls = function
+      | [] -> []
+      | VDecl(t, n) :: rest -> (t, n) :: extract_vdecls rest
+      | Block(sl) :: rest -> extract_vdecls (sl @ rest)
+      | _ :: rest -> extract_vdecls rest
+    in
+
+    let locals_from_body = extract_vdecls func.body in
+    check_binds "local" locals_from_body;
 
     (* Raise an exception if the given rvalue type cannot be assigned to
        the given lvalue type *)
@@ -78,7 +96,7 @@ let check (globals, functions) =
 
     (* Build local symbol table of variables for this function *)
     let symbols = List.fold_left (fun m (ty, name) -> StringMap.add name ty m)
-        StringMap.empty (globals @ func.formals @ func.locals )
+        StringMap.empty (globals @ func.formals @ locals_from_body )
     in
 
     (* Return a variable from our local symbol table *)
@@ -193,8 +211,14 @@ let check (globals, functions) =
       (* A block is correct if each statement is correct and nothing
          follows any Return statement.  Nested blocks are flattened. *)
         Block sl -> SBlock (check_stmt_list sl)
+      | VDecl(t, name) -> SVDecl(t, name)
       | Expr e -> SExpr (check_expr e)
-      | If(e, st) -> SIf(check_bool_expr e, check_stmt st)
+      | If(e, st, sto) ->
+          let s_else = match sto with
+            | Some stmt -> Some (check_stmt stmt)
+            | None -> None
+          in SIf(check_bool_expr e, check_stmt st, s_else)
+  
       | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
 
       | Assign(var, e) ->
@@ -204,6 +228,19 @@ let check (globals, functions) =
           ("illegal assignment: " ^ string_of_typ expr_typ ^ " -> " ^ string_of_typ var_typ)
         in
         SAssign(var, (expr_typ, se))
+      
+      | AssignAt(e_lst, e_idx, e_val) ->
+        let (lst_typ, lst_sx) = check_expr e_lst in
+        let (idx_typ, idx_sx) = check_expr e_idx in
+        let (val_typ, val_sx) = check_expr e_val in
+        (match lst_typ with
+          | List(elem_typ) ->
+            let err = "cannot assign value of type " ^ string_of_typ val_typ ^
+                    " to list element of type " ^ string_of_typ elem_typ in
+          ignore (check_assign elem_typ val_typ err);
+          if not (idx_typ = Int) then raise (Failure ("list index must be Int, got " ^ string_of_typ idx_typ))
+          else SAssignAt ((lst_typ, lst_sx), (idx_typ, idx_sx), (val_typ, val_sx))
+          | _ -> raise (Failure ("cannot index-assign to non-list type " ^ string_of_typ lst_typ)))
 
       | For(id, start_e, end_e, st) ->
         let (start_ty, start_e') = check_expr start_e in
@@ -226,7 +263,6 @@ let check (globals, functions) =
     { srtyp = func.rtyp;
       sfname = func.fname;
       sformals = func.formals;
-      slocals  = func.locals;
       sbody = check_stmt_list func.body
     }
   in

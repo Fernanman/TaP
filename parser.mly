@@ -39,14 +39,23 @@ program:
 
 decls:
    /* nothing */ { ([], []) }
- | vdecl_rule NL decls { (($1 :: fst $3), snd $3) }
+ | bind_rule NL decls { (($1 :: fst $3), snd $3) }
  | fdecl_rule NL decls { (fst $3, ($1 :: snd $3)) }
 
-vdecl_list_rule:
-  /*nothing*/                   { [] }
-  | vdecl_rule NL vdecl_list_rule  { $1 :: $3 }
+
+param_list:
+    /* nothing */ { [] }
+  | typ_rule IDENTIFIER { [($1, $2)] }
+  | typ_rule IDENTIFIER COMMA param_list { ($1, $2) :: $4 }
 
 vdecl_rule:
+  typ_rule IDENTIFIER optional_assign { ($1, $2, $3) }
+
+optional_assign:
+  /* nothing */       { None }
+  | ASSIGN expr_rule  { Some $2 }
+
+bind_rule:
   typ_rule IDENTIFIER { ($1, $2) }
 
 typ_rule:
@@ -57,40 +66,44 @@ typ_rule:
   | LIST typ_rule { List $2 }
 
 fdecl_rule:
-  FUN vdecl_rule LPAREN param_list RPAREN NL vdecl_list_rule stmt_list_rule END FUN
+  FUN bind_rule LPAREN param_list RPAREN NL stmt_list_rule END FUN
   {
     {
       rtyp = fst $2;
       fname = snd $2;
       formals = $4;
-      locals = $7;
-      body = $8;
+      body = $7;
     }
   }
 
 stmt_list_rule:
     /* nothing */               { []     }
     | stmt_rule stmt_list_rule  { $1::$2 }
+    | vdecl_rule NL stmt_list_rule  {
+      let (t, id, init_opt) = $1 in
+        match init_opt with
+        | Some e -> [VDecl(t, id); Assign(id, e)]@$3
+        | None -> VDecl(t, id)::$3
+     }
 
 stmt_rule:
   expr_rule NL { Expr $1 }
   | IDENTIFIER ASSIGN expr_rule NL  { Assign ($1, $3) }
-  | IF expr_rule NL stmt_list_rule END IF NL                                  { If ($2, Block $4)     }
+  | expr_rule AT expr_rule ASSIGN expr_rule NL { AssignAt ($1, $3, $5) }
+  | IF expr_rule NL stmt_list_rule else_part END IF NL { If ($2, Block $4, $5) }
   | WHILE expr_rule NL stmt_list_rule END WHILE NL                      { While ($2, Block $4)  }
   | FOR IDENTIFIER IN expr_rule TO expr_rule optional_step NL stmt_list_rule END FOR NL { For ($2, $4, $6, Block $9) }
   | BREAK NL                                                      { Break }
   | CONT NL                                                          { Continue }
   | RETURN expr_rule NL              { Return $2 }
-  
+
+else_part:
+  | /* nothing */       { None }
+  | ELSE NL stmt_list_rule { Some (Block $3) }
 
 optional_step:
     /* nothing */ { None }
     | STEP INT_LIT { Some $2 }
-
-param_list:
-    /* nothing */ { [] }
-  | typ_rule IDENTIFIER { [($1, $2)] }
-  | typ_rule IDENTIFIER COMMA param_list { ($1, $2) :: $4 }
 
 args_opt:
   /*nothing*/ { [] }
