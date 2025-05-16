@@ -269,39 +269,46 @@ let translate (globals, functions) =
         L.builder_at_end context end_bb
 
     | SFor (var, start_expr, end_expr, body) ->
-        let var_alloca = L.build_alloca i32_t var builder in
-        let start_val = build_expr builder start_expr in
-        ignore (L.build_store start_val var_alloca builder);
+      let var_alloca = L.build_alloca i32_t var builder in
+      let start_val = build_expr builder start_expr in
+      ignore (L.build_store start_val var_alloca builder);
 
-        let loop_cond_bb = L.append_block context "for_cond" the_function in
-        ignore (L.build_br loop_cond_bb builder);
-        
-        let cond_builder = L.builder_at_end context loop_cond_bb in
-        let curr_val = L.build_load var_alloca var cond_builder in
-        let end_val = build_expr cond_builder end_expr in
-        let cond = L.build_icmp L.Icmp.Slt curr_val end_val "for_cond" cond_builder in
+      let loop_cond_bb = L.append_block context "for_cond" the_function in
+      ignore (L.build_br loop_cond_bb builder);
+      
+      let cond_builder = L.builder_at_end context loop_cond_bb in
+      let curr_val = L.build_load var_alloca var cond_builder in
+      let end_val = build_expr cond_builder end_expr in
+      let cond = L.build_icmp L.Icmp.Slt curr_val end_val "for_cond" cond_builder in
 
-        let loop_body_bb = L.append_block context "for_body" the_function in
-        let after_loop_bb = L.append_block context "for_end" the_function in
-        
-        loop_stack := (loop_cond_bb, after_loop_bb) :: !loop_stack;
-        
-        ignore(L.build_cond_br cond loop_body_bb after_loop_bb cond_builder);
+      let loop_body_bb = L.append_block context "for_body" the_function in
+      let inc_bb = L.append_block context "for_inc" the_function in
+      let after_loop_bb = L.append_block context "for_end" the_function in
+      
+      loop_stack := (inc_bb, after_loop_bb) :: !loop_stack; (* Continue jumps to inc_bb, break to after_loop_bb *)
+      
+      ignore(L.build_cond_br cond loop_body_bb after_loop_bb cond_builder);
 
-        let body_builder = L.builder_at_end context loop_body_bb in
-        let loop_var_val = L.build_load var_alloca var body_builder in
-        ignore (L.build_store loop_var_val (lookup var) body_builder);
+      (* Process loop body *)
+      let body_builder = L.builder_at_end context loop_body_bb in
+      let loop_var_val = L.build_load var_alloca var body_builder in
+      ignore (L.build_store loop_var_val (lookup var) body_builder);
 
-        let body_builder = build_stmt body_builder body in
+      let body_builder = build_stmt body_builder body in
 
-        loop_stack := List.tl !loop_stack;
+      (* After body, branch to inc_bb *)
+      ignore (L.build_br inc_bb body_builder);
 
-        let curr_val' = L.build_load var_alloca var body_builder in
-        let next_val = L.build_add curr_val' (L.const_int i32_t 1) "for_inc" body_builder in
-        ignore (L.build_store next_val var_alloca body_builder);
+      (* Process increment block *)
+      let inc_builder = L.builder_at_end context inc_bb in
+      let curr_val' = L.build_load var_alloca var inc_builder in
+      let next_val = L.build_add curr_val' (L.const_int i32_t 1) "for_inc" inc_builder in
+      ignore (L.build_store next_val var_alloca inc_builder);
+      ignore (L.build_br loop_cond_bb inc_builder);
 
-        ignore (L.build_br loop_cond_bb body_builder);
-        L.builder_at_end context after_loop_bb
+      loop_stack := List.tl !loop_stack;
+
+      L.builder_at_end context after_loop_bb
 
       | SAssign (s, e) -> let e' = build_expr builder e in
         ignore (L.build_store e' (lookup s) builder);
