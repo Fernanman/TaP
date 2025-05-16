@@ -35,13 +35,7 @@ open Ast
 %%
 
 program:
-  decls EOF { $1}
-
-decls:
-   /* nothing */ { ([], []) }
- | bind_rule NL decls { (($1 :: fst $3), snd $3) }
- | fdecl_rule NL decls { (fst $3, ($1 :: snd $3)) }
-
+  stmt_list_rule EOF { $1}
 
 param_list:
     /* nothing */ { [] }
@@ -64,7 +58,7 @@ typ_rule:
 fdecl_rule:
   FUN bind_rule LPAREN param_list RPAREN NL stmt_list_rule END FUN
   {
-    {
+    FDecl {
       rtyp = fst $2;
       fname = snd $2;
       formals = $4;
@@ -76,6 +70,8 @@ stmt_list_rule:
     /* nothing */               { []     }
     | stmt_rule stmt_list_rule  { $1::$2 }
     | vdecl_rule NL stmt_list_rule  { $1::$3 }
+    | fdecl_rule NL stmt_list_rule  { $1::$3 }
+    
 
 stmt_rule:
   expr_rule NL { Expr $1 }

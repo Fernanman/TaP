@@ -1,17 +1,12 @@
 integer i.
 
-fun integer main(). 
 i is 10.
-printint(i).
-yap().
-
-integer i.
-i is 1.
-printint(i).
-yap().
-end fun.
-
 fun integer yap().
-i is i - 1.
-printint(i).
+    printint(i).
+
+    integer i.
+    i is 5.
+    printint(i).
 end fun.
+
+printint(i).

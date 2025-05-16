@@ -16,9 +16,12 @@ type expr =
   | Call of string * expr list
   | Contains of expr * expr
 
+type bind = typ * string
+
 type stmt =
   | Block of stmt list
   | VDecl of typ * string
+  | FDecl of func_def
   | Expr of expr
   | If of expr * stmt
   | While of expr * stmt
@@ -28,17 +31,14 @@ type stmt =
   | Return of expr
   | Assign of string * expr
 
-type bind = typ * string
-
-(* func_def: ret_typ fname formals locals body *)
-type func_def = {
+and func_def = {
   rtyp: typ;
   fname: string;
   formals: bind list;
   body: stmt list;
 }
 
-type program = bind list * func_def list
+type program = stmt list
 
 (* Pretty-printing functions *)
 
@@ -85,6 +85,12 @@ let rec string_of_stmt = function
   | Block(stmts) ->
     "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
   | VDecl(t, name) -> string_of_typ t ^ " " ^ name ^ ";\n"
+  | FDecl(fdecl) -> 
+    string_of_typ fdecl.rtyp ^ " " ^
+    fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
+    ")\n{\n" ^
+    String.concat "" (List.map string_of_stmt fdecl.body) ^
+    "}\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
   | If(e, s) ->  "if (" ^ string_of_expr e ^ ")\n" ^
                       string_of_stmt s
@@ -93,17 +99,8 @@ let rec string_of_stmt = function
   | Break -> "break"
   | Continue -> "continue"
   | Return(e) -> "return" ^ string_of_expr e
-  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | Assign(v, e) -> v ^ " = " ^ string_of_expr e  
 
-let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ "\n"
-
-let string_of_fdecl fdecl =
-  string_of_typ fdecl.rtyp ^ " " ^
-  fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
-  ")\n{\n" ^
-  String.concat "" (List.map string_of_stmt fdecl.body) ^
-  "}\n"
-
-let string_of_program (vars, funcs) =
+let string_of_program (stmts : stmt list) =
   "\n\nParsed program: \n\n" ^
-  String.concat "\n" (List.map string_of_fdecl funcs)
+  String.concat "\n" (List.map string_of_stmt stmts)
