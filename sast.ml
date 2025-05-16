@@ -18,6 +18,8 @@ and sx =
 
 type sstmt =
     SBlock of sstmt list
+  | SVDecl of typ * string
+  | SFDecl of sfunc_def
   | SExpr of sexpr
   | SIf of sexpr * sstmt * sstmt option
   | SWhile of sexpr * sstmt
@@ -28,11 +30,10 @@ type sstmt =
   | SAssign of string * sexpr
   | SAssignAt of sexpr * sexpr * sexpr
 
-type sfunc_def = {
+and sfunc_def = {
   srtyp: typ;
   sfname: string;
   sformals: bind list;
-  slocals: bind list;
   sbody: sstmt list;
 }
 

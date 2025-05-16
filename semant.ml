@@ -1,256 +1,248 @@
-(* Semantic checking for the TaP compiler *)
-
 open Ast
 open Sast
 
+exception Error of string
+let err msg = raise (Error msg)
+
 module StringMap = Map.Make(String)
 
-(* Semantic checking of the AST. Returns an SAST if successful,
-   throws an exception if something is wrong.
+(* Scoped environment is a stack of maps *)
+type 'a scoped_env = 'a StringMap.t list
 
-   Check each global variable, then check each function *)
+(* Start with a single empty scope *)
+let empty_env : 'a scoped_env = [StringMap.empty]
 
-let check (globals, functions) =
-  
-  (* Verify a list of bindings has no duplicate names *)
-  let check_binds (kind : string) (binds : (typ * string) list) =
-    let rec dups = function
-        [] -> ()
-      |	((_,n1) :: (_,n2) :: _) when n1 = n2 ->
-        raise (Failure ("duplicate " ^ kind ^ " " ^ n1))
-      | _ :: t -> dups t
-    in dups (List.sort (fun (_,a) (_,b) -> compare a b) binds)
-  in
+(* Push a new scope *)
+let env_push (env : 'a scoped_env) : 'a scoped_env = StringMap.empty :: env
 
-  (* Make sure no globals duplicate *)
-  check_binds "global" globals;
+(* Pop the top scope *)
+let env_pop (env : 'a scoped_env) : 'a scoped_env =
+  match env with
+  | [] -> failwith "No scope to pop"
+  | _ :: rest -> rest
 
-  (* Collect function declarations for built-in functions: no bodies *)
-  let built_in_decls =
-    StringMap.empty
-    |> StringMap.add "printint" {
-      rtyp = Int;
-      fname = "printint";
-      formals = [(Int, "x")];
-      locals = []; body = [] }
-    |> StringMap.add "printstring" {
-      rtyp = Int;
-      fname = "printstr";
-      formals = [(String, "x")];
-      locals = []; body = [] }
-    |> StringMap.add "printnum" {
-      rtyp = Int;
-      fname = "printnum";
-      formals = [(Num, "x")];
-      locals = []; body = [] }
+(* Lookup key in the current (innermost) scope only *)
+let env_find (env : 'a scoped_env) (key : string) : 'a option =
+  match env with
+  | [] -> 
+    prerr_endline ("Variable " ^ key ^ " not found: no scopes available");
+    None
+  | scope :: _ ->
+    (match StringMap.find_opt key scope with
+     | Some v -> Some v
+     | None ->
+       prerr_endline ("Variable " ^ key ^ " not found in current scope");
+       None)
 
-  in
+(* Add binding to top scope *)
+let env_add (env : 'a scoped_env) (key : string) (value : 'a) : 'a scoped_env =
+  match env with
+  | [] -> failwith "No scope to add to"
+  | scope :: rest -> (StringMap.add key value scope) :: rest
 
-  (* Add function name to symbol table *)
-  let add_func map fd =
-    let built_in_err = "function " ^ fd.fname ^ " may not be defined"
-    and dup_err = "duplicate function " ^ fd.fname
-    and make_err er = raise (Failure er)
-    and n = fd.fname (* Name of the function *)
-    in match fd with (* No duplicate functions or redefinitions of built-ins *)
-      _ when StringMap.mem n built_in_decls -> make_err built_in_err
-    | _ when StringMap.mem n map -> make_err dup_err
-    | _ ->  StringMap.add n fd map
-  in
+(* Built-in functions inserted in the global (top) scope *)
+let built_in_decls : func_def scoped_env =
+  let env1 = env_add empty_env "printint" {
+    rtyp = Int;
+    fname = "printint";
+    formals = [(Int, "x")];
+    body = [];
+  } in
+  let env2 = env_add env1 "printnum" {
+    rtyp = Int;
+    fname = "printstring";
+    formals = [(Num, "x")];
+    body = [];
+  } in
+  let env3 = env_add env2 "printstring" {
+    rtyp = Int;
+    fname = "printstring";
+    formals = [(String, "x")];
+    body = [];
+  } in
+  env3
 
-  (* Collect all function names into one symbol table *)
-  let function_decls = List.fold_left add_func built_in_decls functions
-  in
-
-  (* Return a function from our symbol table *)
-  let find_func s =
-    try StringMap.find s function_decls
-    with Not_found -> raise (Failure ("unrecognized function " ^ s))
-  in
-
-  let _ = find_func "main" in (* Ensure "main" is defined *)
-
-  let rec check_func func =
-    (* Make sure no formals or locals are void or duplicates *)
-    check_binds "formal" func.formals;
-    check_binds "local" func.locals;
-
-    (* Raise an exception if the given rvalue type cannot be assigned to
-       the given lvalue type *)
-    let check_assign lvaluet rvaluet err =
-      if lvaluet = rvaluet then lvaluet else raise (Failure err)
+(* Type checking expressions and returning annotated ones *)
+let rec check_expr (var_env : typ scoped_env) (func_env : func_def scoped_env) : expr -> sexpr = function
+  | IntLit l -> (Int, SIntLit l)
+  | BoolLit l -> (Bool, SBoolLit l)
+  | NumLit l -> (Num, SNumLit l)
+  | StringLit l -> (String, SStringLit l)
+  | Id s ->
+    let t =
+      match env_find var_env s with
+      | Some t -> t
+      | None -> err ("undeclared identifier " ^ s)
+    in (t, SId s)
+  | As (e, t) ->
+    let (_, se) = check_expr var_env func_env e in
+    (t, SAs ((t, se), t))
+  | At (e1, e2) ->
+    let (t1, se1) = check_expr var_env func_env e1 in
+    let (t2, se2) = check_expr var_env func_env e2 in
+    (match t1, t2 with
+      | List t, Int -> (t, SAt ((t1, se1), (t2, se2)))
+      | _ -> err "invalid indexing")
+  | Binop (e1, op, e2) ->
+    let (t1, se1) = check_expr var_env func_env e1 in
+    let (t2, se2) = check_expr var_env func_env e2 in
+    let result_type = match op with
+      | Add | Sub | Mult | Div | Mod ->
+        if t1 = Int && t2 = Int then Int
+        else if t1 = Num && t2 = Num then Num
+        else err "invalid arithmetic operation"
+      | Equal | Neq | Less | Greater | Leq | Geq ->
+        if t1 = t2 then Bool else err "comparison on mismatched types"
+      | And | Or ->
+        if t1 = Bool && t2 = Bool then Bool else err "logical op on non-bools"
     in
-
-    (* Build local symbol table of variables for this function *)
-    let symbols = List.fold_left (fun m (ty, name) -> StringMap.add name ty m)
-        StringMap.empty (globals @ func.formals @ func.locals )
+    (result_type, SBinop ((t1, se1), op, (t2, se2)))
+  | ListLit es ->
+    (match es with
+      | [] -> (List Null, SListLit [])
+      | hd::_ ->
+        let (ht, _) = check_expr var_env func_env hd in
+        let ses = List.map (check_expr var_env func_env) es in
+        (List ht, SListLit ses))
+  | Call (fname, args) ->
+    let fd =
+      match env_find func_env fname with
+      | Some f -> f
+      | None -> err ("function " ^ fname ^ " not declared")
     in
+    let params = fd.formals in
+    if List.length params != List.length args then
+      err ("incorrect number of arguments to " ^ fname)
+    else
+      let sargs = List.map (check_expr var_env func_env) args in
+      List.iter2
+        (fun (pt, _) (at, _) ->
+          if pt <> at then err ("argument type mismatch in call to " ^ fname))
+        params sargs;
+      (fd.rtyp, SCall (fname, sargs))
+  | Contains (e1, e2) ->
+    let (t1, se1) = check_expr var_env func_env e1 in
+    let (t2, se2) = check_expr var_env func_env e2 in
+    (match t2 with
+      | List t when t = t1 -> (Bool, SContains ((t1, se1), (t2, se2)))
+      | _ -> err "invalid 'in' expression")
 
-    (* Return a variable from our local symbol table *)
-    let type_of_identifier s =
-      try StringMap.find s symbols
-      with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+(* Type check a statement list and return SAST *)
+let rec check_stmt_list
+    (var_env : typ scoped_env)
+    (func_env : func_def scoped_env)
+    (ret_type : typ)
+    (stmts : stmt list)
+  : (typ scoped_env * func_def scoped_env * sstmt list) =
+  match stmts with
+  | [] -> (var_env, func_env, [])
+  | hd :: tl ->
+    let (var_env', func_env', sstmt1) = check_stmt var_env func_env ret_type hd in
+    let (var_env'', func_env'', sstmts) = check_stmt_list var_env' func_env' ret_type tl in
+    (var_env'', func_env'', sstmt1 :: sstmts)
+
+and check_stmt
+    (var_env : typ scoped_env)
+    (func_env : func_def scoped_env)
+    (ret_type : typ)
+    (stmt : stmt)
+  : (typ scoped_env * func_def scoped_env * sstmt) =
+  match stmt with
+  | Block sl ->
+    let var_env' = env_push var_env in
+    let func_env' = env_push func_env in
+    let (var_env'', func_env'', sstmts) = check_stmt_list var_env' func_env' ret_type sl in
+    let var_env_after = env_pop var_env'' in
+    let func_env_after = env_pop func_env'' in
+    (var_env_after, func_env_after, SBlock sstmts)
+
+  | VDecl (t, name) ->
+    (match var_env with
+    | [] -> failwith "empty environment"
+    | top_scope :: _ ->
+      if StringMap.mem name top_scope then err ("duplicate variable " ^ name)
+      else
+        let var_env' = env_add var_env name t in
+        (var_env', func_env, SVDecl (t, name)))
+
+  | FDecl f ->
+    (* Check duplicate function name in current function top scope *)
+    let current_func_scope =
+      match func_env with
+      | [] -> failwith "No function env scope"
+      | scope :: _ -> scope
     in
+    if StringMap.mem f.fname current_func_scope then
+      err ("duplicate function " ^ f.fname)
+    else
+      (* Add function to function env top scope *)
+      let func_env' = env_add func_env f.fname f in
+      (* Push new variable and function scopes for function body *)
+      let var_env' = env_push var_env in
+      let func_env'' = env_push func_env' in
+      (* Add formals to new variable scope *)
+      let var_env'' = List.fold_left (fun e (t,n) -> env_add e n t) var_env' f.formals in
+      (* Check function body *)
+      let (var_env_after, func_env_after, sbody) = check_stmt_list var_env'' func_env'' f.rtyp f.body in
+      (* Pop scopes after function body *)
+      let var_env_final = env_pop var_env_after in
+      let func_env_final = env_pop func_env_after in
+      let sf = {
+        srtyp = f.rtyp;
+        sfname = f.fname;
+        sformals = f.formals;
+        sbody = sbody;
+      } in
+      (* Return original var_env unchanged, updated func_env with new function, and SFDecl *)
+      (var_env_final, func_env_final, SFDecl sf)
 
-    let compatible from_t to_t = match (from_t, to_t) with
-    | Int, Num -> true
-    | Num, Int -> true
-    | t1, t2 when t1 = t2 -> true
-    | _ -> false
+  | Expr e ->
+    let se = check_expr var_env func_env e in
+    (var_env, func_env, SExpr se)
+
+  | If (cond, s) ->
+    let (t, se) = check_expr var_env func_env cond in
+    if t <> Bool then err "if condition must be boolean";
+    let (var_env', func_env', ss) = check_stmt var_env func_env ret_type s in
+    (var_env', func_env', SIf ((t, se), ss))
+
+  | While (cond, s) ->
+    let (t, se) = check_expr var_env func_env cond in
+    if t <> Bool then err "while condition must be boolean";
+    let (var_env', func_env', ss) = check_stmt var_env func_env ret_type s in
+    (var_env', func_env', SWhile ((t, se), ss))
+
+  | For (id, e1, e2, s) ->
+    let (t1, se1) = check_expr var_env func_env e1 in
+    let (t2, se2) = check_expr var_env func_env e2 in
+    if t1 <> Int || t2 <> Int then err "for loop range must be int";
+    let var_env' = env_add var_env id Int in
+    let (var_env'', func_env', ss) = check_stmt var_env' func_env ret_type s in
+    (var_env'', func_env', SFor (id, (t1, se1), (t2, se2), ss))
+
+  | Break -> (var_env, func_env, SBreak)
+
+  | Continue -> (var_env, func_env, SContinue)
+
+  | Return e ->
+    let (rt, se) = check_expr var_env func_env e in
+    if rt <> ret_type then err "return type mismatch";
+    (var_env, func_env, SReturn (rt, se))
+
+  | Assign (name, e) ->
+    let (et, se) = check_expr var_env func_env e in
+    let vt =
+      match env_find var_env name with
+      | Some t -> t
+      | None -> err ("undeclared variable " ^ name)
     in
+    if et <> vt then err ("assignment type mismatch");
+    (var_env, func_env, SAssign (name, (et, se)))
 
-    (* Return a semantically-checked expression, i.e., with a type *)
-    let rec check_expr = function
-        IntLit l -> (Int, SIntLit l)
-      | BoolLit l -> (Bool, SBoolLit l)
-      | NumLit l -> (Num, SNumLit l)
-      | StringLit l -> (String, SStringLit l)
-
-      (* List definition *)
-      | ListLit l -> (match l with
-        | [] -> (List Null, SListLit [])
-        | hd :: _ -> let (head_ty, _) = check_expr hd in
-          let lst_elems = List.map (fun e ->
-            let (ty, se) = check_expr e in
-            if not (ty = head_ty) then
-              raise (Failure ("type mismatch in list literal: expected " ^ string_of_typ head_ty ^ ", got " ^ string_of_typ ty))
-            else (ty, se)) l in
-          (List head_ty, SListLit lst_elems)
-      )
-
-      | Id var -> (type_of_identifier var, SId var)
-
-      (* As checking *)
-      | As(e1, etype) -> 
-          let (et, e') = check_expr e1 in
-          if compatible et etype then (etype, SAs((et, e'), etype))
-          else raise (Failure ("type mismatch in 'as' operation. type " ^ string_of_typ et ^ " incompatible with  type " ^ string_of_typ etype))
-        
-      (* At for indexing *)
-      | At(e1, e2) -> 
-          let (et1, e1') = check_expr e1
-          and (et2, e2') = check_expr e2 in
-          if not (et2 = Int) then raise (Failure ("invalid 'at' operation: index must be Int, got " ^ string_of_typ et2))
-          else (match et1 with
-          | List lst_t when lst_t = Null -> raise (Failure ("empty list not subscriptable"))
-          | List lst_t -> (lst_t, SAt ((et1, e1'), (et2, e2')))
-          | String -> (String, SAt ((et1, e1'), (et2, e2')))
-          | _ -> raise (Failure ("type " ^ string_of_typ et1 ^ " not subscriptable")))
-      
-      (* Contains for checking if a list has an element *)
-      | Contains (elem_expr, list_expr) ->
-        let (elem_ty, se_elem) = check_expr elem_expr in
-        let (list_ty, se_list) = check_expr list_expr in
-        (match list_ty with
-        | List t -> (Bool, SContains ((elem_ty, se_elem), (list_ty, se_list)))
-        | _ -> raise (Failure ("invalid 'in' operation: expected type list, got " ^ string_of_typ list_ty)))
-
-      (* Adding binary operations *)
-      | Binop(e1, op, e2) as e ->
-        let (t1, e1') = check_expr e1
-        and (t2, e2') = check_expr e2 in
-        let err = "illegal binary operator " ^
-                  string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-                  string_of_typ t2 ^ " in " ^ string_of_expr e
-        in
-        if compatible t1 t2 then
-          let t = match op with
-              Add | Sub | Mult | Div | Mod when (t1 = Int && t2 = Int) -> Int
-            | Add | Sub | Mult | Div when (t1 = Num || t2 = Num) -> Num
-            | Add when (t1 = String && t2 = String) -> String
-            | Equal | Neq -> Bool
-            | Less | Greater | Geq | Leq when (t1 = Int || t1 = Num) -> Bool
-            | And | Or when t1 = Bool -> Bool
-            | _ -> raise (Failure err)
-          in
-          (t, SBinop((t1, e1'), op, (t2, e2')))
-        else raise (Failure err)
-
-      | Call(fname, args) as call ->
-        let fd = find_func fname in
-        let param_length = List.length fd.formals in
-        if List.length args != param_length then
-          raise (Failure ("expecting " ^ string_of_int param_length ^
-                          " arguments in " ^ string_of_expr call))
-        else let check_call (ft, _) e =
-               let (et, e') = check_expr e in
-               let err = "illegal argument found " ^ string_of_typ et ^
-                         " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e
-               in (check_assign ft et err, e')
-          in
-          let args' = List.map2 check_call fd.formals args
-          in (fd.rtyp, SCall(fname, args'))
-    in
-
-    let check_bool_expr e =
-      let (t, e') = check_expr e in
-      match t with
-      | Bool -> (t, e')
-      |  _ -> raise (Failure ("expected Boolean expression in " ^ string_of_expr e ^ ", got " ^ string_of_typ t))
-    in
-
-    let rec check_stmt_list = function
-        [] -> []
-      | Block sl :: sl'  -> check_stmt_list (sl @ sl') (* Flatten blocks *)
-      | s :: sl -> check_stmt s :: check_stmt_list sl
-    (* Return a semantically-checked statement i.e. containing sexprs *)
-    and check_stmt = function
-      (* A block is correct if each statement is correct and nothing
-         follows any Return statement.  Nested blocks are flattened. *)
-        Block sl -> SBlock (check_stmt_list sl)
-      | Expr e -> SExpr (check_expr e)
-      | If(e, st, sto) ->
-          let s_else = match sto with
-            | Some stmt -> Some (check_stmt stmt)
-            | None -> None
-          in SIf(check_bool_expr e, check_stmt st, s_else)
-  
-      | While(e, st) -> SWhile(check_bool_expr e, check_stmt st)
-
-      | Assign(var, e) ->
-        let var_typ = type_of_identifier var in
-        let (expr_typ, se) = check_expr e in
-        let _ = check_assign var_typ expr_typ
-          ("illegal assignment: " ^ string_of_typ expr_typ ^ " -> " ^ string_of_typ var_typ)
-        in
-        SAssign(var, (expr_typ, se))
-      
-      | AssignAt(e_lst, e_idx, e_val) ->
-        let (lst_typ, lst_sx) = check_expr e_lst in
-        let (idx_typ, idx_sx) = check_expr e_idx in
-        let (val_typ, val_sx) = check_expr e_val in
-        (match lst_typ with
-          | List(elem_typ) ->
-            let err = "cannot assign value of type " ^ string_of_typ val_typ ^
-                    " to list element of type " ^ string_of_typ elem_typ in
-          ignore (check_assign elem_typ val_typ err);
-          if not (idx_typ = Int) then raise (Failure ("list index must be Int, got " ^ string_of_typ idx_typ))
-          else SAssignAt ((lst_typ, lst_sx), (idx_typ, idx_sx), (val_typ, val_sx))
-          | _ -> raise (Failure ("cannot index-assign to non-list type " ^ string_of_typ lst_typ)))
-
-      | For(id, start_e, end_e, st) ->
-        let (start_ty, start_e') = check_expr start_e in
-        let (end_ty, end_e') = check_expr end_e in
-        if (not (start_ty = Int)) || (not (end_ty = Int)) then
-          raise (Failure ("for loop bounds must be integers, got " ^ string_of_typ start_ty ^ " and " ^ string_of_typ end_ty))
-        else
-          SFor(id, (start_ty, start_e'), (end_ty, end_e'), check_stmt st)
-      (* For loop step ignored for now*)
-
-      | Break -> SBreak
-      | Continue -> SContinue
-      | Return e ->
-        let (t, e') = check_expr e in
-        if t = func.rtyp then SReturn (t, e')
-        else raise (
-            Failure ("return gives " ^ string_of_typ t ^ " expected " ^
-                     string_of_typ func.rtyp ^ " in " ^ string_of_expr e))
-    in (* body of check_func *)
-    { srtyp = func.rtyp;
-      sfname = func.fname;
-      sformals = func.formals;
-      slocals  = func.locals;
-      sbody = check_stmt_list func.body
-    }
-  in
-  (globals, List.map check_func functions)
+(* Entry point: check a program and return SAST *)
+let check (stmts : stmt list) : sstmt list =
+  (* Start with built-in functions in the global function environment *)
+  let func_env = built_in_decls in
+  let var_env = [StringMap.empty] in
+  let (_, _, sstmts) = check_stmt_list var_env func_env Null stmts in
+  sstmts
